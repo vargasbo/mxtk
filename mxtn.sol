@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
@@ -10,11 +10,19 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import {GraphitePriceOracle} from "./GraphitePriceOracle.sol";
 import {CopperPriceOracle} from "./CopperPriceOracle.sol";
 
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+
+
 contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     AggregatorV3Interface internal ethPriceFeed; // Chainlink ETH/USD Price Feed contract
     AggregatorV3Interface internal auPriceFeed; // Chainlink Gold Price Feed contract
 
-    constructor() ERC20("Mineral Token", "MXTK") {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
+    constructor(address initialOwner)
+    ERC20("Mineral Token", "MXTK")
+    Ownable(initialOwner)
+    {
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
             0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
@@ -39,6 +47,8 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     // Mapping of SKRs to their respective owners
     // Mapping of SKRs for each address using assetIpfsCID as the key
     mapping(address => mapping(string => SKR)) public skrs;
+    //EnumerableMap.AddressToUintMap private skrs;
+    //HashMap.HashMap private skrs;
 
     // Struct to represent SKR details
     struct SKR {
@@ -69,13 +79,13 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
         _unpause();
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal override whenNotPaused {
-        super._beforeTokenTransfer(from, to, amount);
-    }
+    // function _beforeTokenTransfer(
+    //     address from,
+    //     address to,
+    //     uint256 amount
+    // ) internal override(ERC20, ERC20Burnable) whenNotPaused {
+    //     super._beforeTokenTransfer(from, to, amount);
+    // }
 
     function updateETHPriceOracle(address ethOracleAddress) external onlyOwner {
         require(ethOracleAddress != address(0), "Invalid address");
@@ -83,8 +93,8 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     }
 
     function updateGoldPriceOracle(address goldOracleAddress)
-        external
-        onlyOwner
+    external
+    onlyOwner
     {
         require(goldOracleAddress != address(0), "Invalid address");
         auPriceFeed = AggregatorV3Interface(goldOracleAddress);
@@ -92,29 +102,27 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     // Set the address of the Graphite price oracle
     function setGraphitePriceOracle(GraphitePriceOracle _oracleAddress)
-        external
-        onlyOwner
+    external
+    onlyOwner
     {
         graphitePriceOracleAddress = _oracleAddress;
     }
 
     // Set the address of the Copper price oracle
     function setCopperPriceOracle(CopperPriceOracle _oracleAddress)
-        external
-        onlyOwner
+    external
+    onlyOwner
     {
         copperPriceOracleAddress = _oracleAddress;
     }
 
     // Function to add a new SKR
     function addSKR(address _skrOwner, string memory _assetIpfsCID)
-        external
-        onlyOwner
+    external
+    onlyOwner
     {
-        require(
-            skrs[_skrOwner][_assetIpfsCID].owner == address(0),
-            "SKR already exists"
-        );
+        require(skrs[_skrOwner][_assetIpfsCID].owner == address(0), "SKR already exists");
+
 
         // Create a new SKR struct
         SKR storage newSKR = skrs[_skrOwner][_assetIpfsCID];
@@ -197,6 +205,68 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
         );
     }
 
+    // Function to update prices of underlying assets and compute token price
+    function updateAndComputeTokenPrice(
+        uint256 newGraphitePrice,
+        uint256 newCopperPrice
+    ) external onlyOwner {
+        // Update the prices of underlying assets
+        graphitePriceOracleAddress.setGraphitePrice(newGraphitePrice);
+        copperPriceOracleAddress.setCopperPrice(newCopperPrice);
+
+        // Recalculate the total asset value and token price
+        totalAssetValue = calculateTotalAssetValue();
+        uint256 newTokenPrice = computeTokenPrice();
+
+        // Emit an event or log the updated token price
+        //emit TokenPriceUpdated(newTokenPrice);
+    }
+
+    // Function to calculate the total value of all assets in the contract
+    function calculateTotalAssetValue() internal view returns (uint256) {
+        uint256 totalValue = 0;
+
+        // Get outer mapping keys
+        address[] memory skrOwners = skrs.keys();
+
+        for (uint256 i = 0; i < skrOwners.length; i++) {
+            address skrOwner = skrOwners[i];
+            string[] memory assetIpfsCIDs = skrs[skrOwner].keys();
+
+            for (uint256 j = 0; j < assetIpfsCIDs.length; j++) {
+                string memory assetIpfsCID = assetIpfsCIDs[j];
+                SKR storage skr = skrs[skrOwner][assetIpfsCID];
+
+                for (uint256 k = 0; k < mineralSymbols.length; k++) {
+                    string memory mineralSymbol = mineralSymbols[k];
+
+                    if (
+                        skr.owner != address(0) &&
+                        bytes(skr.minerals[mineralSymbol].symbol).length > 0
+                    ) {
+                        uint256 mineralValue = calculateMineralValueInWei(
+                            skr.minerals[mineralSymbol].symbol,
+                            skr.minerals[mineralSymbol].ounces
+                        );
+
+                        totalValue += mineralValue;
+                    }
+                }
+            }
+        }
+
+        return totalValue;
+    }
+
+    // Function to compute the new token price based on total asset value
+    function computeTokenPrice() internal view returns (uint256) {
+        // Ensure that totalSupply() is greater than zero to avoid division by zero
+        require(totalSupply() > 0, "Total supply must be greater than zero");
+
+        // Calculate the new token price based on total asset value and total supply
+        return totalAssetValue / totalSupply();
+    }
+
     // Function to add a mineral symbol to the array
     function addMineralSymbol(string memory mineralSymbol) public onlyOwner {
         bool symbolExists = false;
@@ -215,9 +285,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     }
 
     function computeTokenToMintByWei(uint256 weiAmount)
-        public
-        view
-        returns (uint256)
+    public
+    view
+    returns (uint256)
     {
         require(weiAmount > 0, "Value must > zero");
 
@@ -237,9 +307,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     }
 
     function calculateAdminFee(uint256 tokensToMintInWei)
-        public
-        pure
-        returns (uint256)
+    public
+    pure
+    returns (uint256)
     {
         require(tokensToMintInWei > 0, "Fee must > zero");
         return (tokensToMintInWei * 40) / 100;
@@ -272,9 +342,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     // Function to calculate the value of Copper based on ounces from an oracle
     function calculateCopperValue(uint256 metalOunces)
-        public
-        view
-        returns (uint256)
+    public
+    view
+    returns (uint256)
     {
         // Ensure that the copperPriceOracleAddress is set
         require(
@@ -303,9 +373,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     // Function to calculate the value of Gold based on ounces from an oracle
     function calculateGoldValue(uint256 metalOunces)
-        public
-        view
-        returns (uint256)
+    public
+    view
+    returns (uint256)
     {
         uint256 price = getGoldPrice();
         //Gold is returned in
@@ -321,9 +391,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     // Function to calculate the value of Graphite based on ounces from an oracle
     function calculateGraphiteValue(uint256 metalOunces)
-        public
-        view
-        returns (uint256)
+    public
+    view
+    returns (uint256)
     {
         // Ensure that the graphitePriceOracleAddress is set
         require(
@@ -338,9 +408,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
     }
 
     function transfer(address to, uint256 amount)
-        public
-        override
-        returns (bool)
+    public
+    override
+    returns (bool)
     {
         require(to != address(0), "Invalid address");
         require(amount > 0, "Amount must > zero");
@@ -429,9 +499,9 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     // Function to calculate the number of tokens to burn based on SKR value
     function computeTokenToBurnByWei(uint256 weiAmount)
-        public
-        view
-        returns (uint256)
+    public
+    view
+    returns (uint256)
     {
         require(weiAmount > 0, "Value must > zero");
 

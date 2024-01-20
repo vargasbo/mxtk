@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract GraphitePriceOracle is Ownable {
     uint256 public graphitePrice;
 
-    constructor() {
+    constructor(address initialOwner) Ownable(initialOwner){
         graphitePrice = 10000000; // 10 cents, Price in 8 decimal
     }
 
