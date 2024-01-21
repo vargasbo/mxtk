@@ -2,10 +2,14 @@
 
 pragma solidity ^0.8.20;
 
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PausableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {GraphitePriceOracle} from "./GraphitePriceOracle.sol";
 import {CopperPriceOracle} from "./CopperPriceOracle.sol";
@@ -13,16 +17,47 @@ import {CopperPriceOracle} from "./CopperPriceOracle.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 
-contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
+contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable, OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     AggregatorV3Interface internal ethPriceFeed; // Chainlink ETH/USD Price Feed contract
     AggregatorV3Interface internal auPriceFeed; // Chainlink Gold Price Feed contract
+    AggregatorV3Interface internal bauxitePriceFeed;
+    AggregatorV3Interface internal chromiumPriceFeed;
+    AggregatorV3Interface internal coalPriceFeed;
+    AggregatorV3Interface internal cobaltPriceFeed;
+    AggregatorV3Interface internal copperPriceFeed;
+    AggregatorV3Interface internal diamondPriceFeed;
+    AggregatorV3Interface internal graphitePriceFeed;
+    AggregatorV3Interface internal iridiumPriceFeed;
+    AggregatorV3Interface internal ironPriceFeed;
+    AggregatorV3Interface internal lithiumPriceFeed;
+    AggregatorV3Interface internal magnesiumPriceFeed;
+    AggregatorV3Interface internal manganesePriceFeed;
+    AggregatorV3Interface internal nickelPriceFeed;
+    AggregatorV3Interface internal oilPriceFeed;
+    AggregatorV3Interface internal osmiumPriceFeed;
+    AggregatorV3Interface internal palladiumPriceFeed;
+    AggregatorV3Interface internal platinumPriceFeed;
+    AggregatorV3Interface internal rhodiumPriceFeed;
+    AggregatorV3Interface internal rutheniumPriceFeed;
+    AggregatorV3Interface internal silverPriceFeed;
+    AggregatorV3Interface internal tanzanitePriceFeed;
+    AggregatorV3Interface internal tungstenPriceFeed;
 
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
-    constructor(address initialOwner)
-    ERC20("Mineral Token", "MXTK")
-    Ownable(initialOwner)
-    {
+    function initialize(address initialOwner) initializer public {
+        __ERC20_init("Mineral Token", "MXTK")
+        __ERC20Burnable_init();
+        __ERC20Pausable_init();
+        __Ownable_init(initialOwner);
+        __ERC20Permit_init("MyToken");
+        __UUPSUpgradeable_init();
+
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
             0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
@@ -77,6 +112,21 @@ contract MXTN is ERC20, ERC20Burnable, Pausable, Ownable {
 
     function unpause() public onlyOwner {
         _unpause();
+    }
+
+    function _authorizeUpgrade(address newImplementation)
+    internal
+    onlyOwner
+    override
+    {}
+
+    // The following functions are overrides required by Solidity.
+
+    function _update(address from, address to, uint256 value)
+    internal
+    override(ERC20Upgradeable, ERC20PausableUpgradeable)
+    {
+        super._update(from, to, value);
     }
 
     // function _beforeTokenTransfer(
