@@ -16,8 +16,13 @@ import {CopperPriceOracle} from "./CopperPriceOracle.sol";
 
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
+//TODO: We'll need to migrate the old contract data and tokens to this new contract
+//TODO: We'll need to test that the Upgradable is working as expected on UniSwap
+//TODO: We'll need an external code that monitors when prices event changes on the oracle and update the token price
 
-contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable, OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
+            OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -55,7 +60,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         __ERC20Burnable_init();
         __ERC20Pausable_init();
         __Ownable_init(initialOwner);
-        __ERC20Permit_init("MyToken");
+        __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
@@ -79,20 +84,26 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     // Gas fee percentage
     uint256 public gasFeePercentage;
 
-    // Mapping of SKRs to their respective owners
-    // Mapping of SKRs for each address using assetIpfsCID as the key
-    mapping(address => mapping(string => SKR)) public skrs;
-    //EnumerableMap.AddressToUintMap private skrs;
-    //HashMap.HashMap private skrs;
+    // Mapping of HOLDINGs to their respective owners
+    // Mapping of HOLDINGs for each address using assetIpfsCID as the key
+    mapping(address => mapping(string => HOLDING)) public holdings;
 
-    // Struct to represent SKR details
-    struct SKR {
+    //TODO: We might want to consider breaking down the holdings variable for performance reasons; examples below
+    //EnumerableMap.AddressToUintMap private holdings;
+    //HashMap.HashMap private holdings;
+
+    // Struct to represent HOLDING details. Holdings can be
+    // SKR, JRTOC, 83101, etc.
+    struct HOLDING {
         address owner;
         string assetIpfsCID;
-        mapping(string => Mineral) minerals; // Mapping of minerals inside the SKR
+        mapping(string => Mineral) minerals; // Mapping of minerals inside the HOLDING
     }
 
-    // Struct to represent mineral details
+    // Struct to represent mineral details.
+    //TODO: Given that we'll now support Oil and Goal, we might want to use other unit types. Will want to test
+    // if the uint256 can support big oil contracts.
+    // than just ounces.
     struct Mineral {
         string symbol;
         uint256 ounces;
@@ -121,7 +132,6 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {}
 
     // The following functions are overrides required by Solidity.
-
     function _update(address from, address to, uint256 value)
     internal
     override(ERC20Upgradeable, ERC20PausableUpgradeable)
@@ -129,6 +139,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         super._update(from, to, value);
     }
 
+    //TODO: Might not be needed anymore
     // function _beforeTokenTransfer(
     //     address from,
     //     address to,
@@ -166,47 +177,50 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         copperPriceOracleAddress = _oracleAddress;
     }
 
-    // Function to add a new SKR
-    function addSKR(address _skrOwner, string memory _assetIpfsCID)
+    //TODO: Add the Update/Set Oracles for all the remaining Oracles
+
+    // Function to add a new HOLDING
+    function addHOLDING(address _holdingOwner, string memory _assetIpfsCID)
     external
     onlyOwner
     {
-        require(skrs[_skrOwner][_assetIpfsCID].owner == address(0), "SKR already exists");
+        require(holdings[_holdingOwner][_assetIpfsCID].owner == address(0), "HOLDING already exists");
 
 
-        // Create a new SKR struct
-        SKR storage newSKR = skrs[_skrOwner][_assetIpfsCID];
+        // Create a new HOLDING struct
+        HOLDING storage newHOLDING = holdings[_holdingOwner][_assetIpfsCID];
 
-        // Initialize the SKR struct with the provided data
-        newSKR.assetIpfsCID = _assetIpfsCID;
-        newSKR.owner = _skrOwner;
+        // Initialize the HOLDING struct with the provided data
+        newHOLDING.assetIpfsCID = _assetIpfsCID;
+        newHOLDING.owner = _holdingOwner;
     }
 
-    function addMineralToSKR(
-        address skrOwner,
+    ///A holding can have N number of minerals inside of it.
+    function addMineralToHOLDING(
+        address holdingOwner,
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
     ) external onlyOwner {
-        require(skrOwner != address(0), "SKR not found");
+        require(holdingOwner != address(0), "HOLDING not found");
         require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
         require(mineralOunces > 0, "Oz must be greater than zero");
         require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
 
-        // Access a specific SKR for an address using assetIpfsCID
-        SKR storage skr = skrs[skrOwner][assetIpfsCID];
+        // Access a specific HOLDING for an address using assetIpfsCID
+        HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
 
-        // Ensure that the SKR owner exists
-        require(skr.owner != address(0), "SKR owner does not exist");
+        // Ensure that the HOLDING owner exists
+        require(holding.owner != address(0), "HOLDING owner does not exist");
 
-        // Check if the mineral already exists for this SKR
+        // Check if the mineral already exists for this HOLDING
         require(
-            skr.minerals[mineralSymbol].ounces == 0,
+            holding.minerals[mineralSymbol].ounces == 0,
             "Mineral already exists"
         );
 
-        // Add the mineral details to the SKR storage
-        skr.minerals[mineralSymbol] = Mineral({
+        // Add the mineral details to the HOLDING storage
+        holding.minerals[mineralSymbol] = Mineral({
             symbol: mineralSymbol,
             ounces: mineralOunces
         });
@@ -224,19 +238,19 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         // Calculate admin fee
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
 
-        // Calculate amount to transfer to SKR owner in Wei
-        uint256 amountToTransferToSKROwner = tokensToMintInWei - adminFeeInWei;
+        // Calculate amount to transfer to HOLDING owner in Wei
+        uint256 amountToTransferToHOLDINGOwner = tokensToMintInWei - adminFeeInWei;
 
         // Ensure that the amount to mint is greater than zero
         require(tokensToMintInWei > 0, "Tokens to mint > zero");
-        require(amountToTransferToSKROwner > 0, "Owner mint NOT > 0");
+        require(amountToTransferToHOLDINGOwner > 0, "Owner mint NOT > 0");
         require(adminFeeInWei > 0, "Admin fee NOT > 0");
 
         // Update totalAssetValue
         totalAssetValue += mineralValueInWei;
 
-        // Mint tokens directly to the SKR owner's wallet
-        _mint(skrOwner, amountToTransferToSKROwner);
+        // Mint tokens directly to the HOLDING owner's wallet
+        _mint(holdingOwner, amountToTransferToHOLDINGOwner);
 
         // Mint admin fee directly to the contract owner's wallet
         _mint(owner(), adminFeeInWei);
@@ -245,13 +259,13 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
         // Events, etc...
         emit MineralAdded(
-            skrOwner,
+            holdingOwner,
             mineralSymbol,
             mineralOunces,
             mineralValueInWei,
             tokensToMintInWei,
             adminFeeInWei,
-            amountToTransferToSKROwner
+            amountToTransferToHOLDINGOwner
         );
     }
 
@@ -269,7 +283,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         uint256 newTokenPrice = computeTokenPrice();
 
         // Emit an event or log the updated token price
-        //emit TokenPriceUpdated(newTokenPrice);
+        emit TokenPriceUpdated(newTokenPrice);
     }
 
     // Function to calculate the total value of all assets in the contract
@@ -277,26 +291,26 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         uint256 totalValue = 0;
 
         // Get outer mapping keys
-        address[] memory skrOwners = skrs.keys();
+        address[] memory holdingOwners = holdings.keys();
 
-        for (uint256 i = 0; i < skrOwners.length; i++) {
-            address skrOwner = skrOwners[i];
-            string[] memory assetIpfsCIDs = skrs[skrOwner].keys();
+        for (uint256 i = 0; i < holdingOwners.length; i++) {
+            address holdingOwner = holdingOwners[i];
+            string[] memory assetIpfsCIDs = holdings[holdingOwner].keys();
 
             for (uint256 j = 0; j < assetIpfsCIDs.length; j++) {
                 string memory assetIpfsCID = assetIpfsCIDs[j];
-                SKR storage skr = skrs[skrOwner][assetIpfsCID];
+                HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
 
                 for (uint256 k = 0; k < mineralSymbols.length; k++) {
                     string memory mineralSymbol = mineralSymbols[k];
 
                     if (
-                        skr.owner != address(0) &&
-                        bytes(skr.minerals[mineralSymbol].symbol).length > 0
+                        holding.owner != address(0) &&
+                        bytes(holding.minerals[mineralSymbol].symbol).length > 0
                     ) {
                         uint256 mineralValue = calculateMineralValueInWei(
-                            skr.minerals[mineralSymbol].symbol,
-                            skr.minerals[mineralSymbol].ounces
+                            holding.minerals[mineralSymbol].symbol,
+                            holding.minerals[mineralSymbol].ounces
                         );
 
                         totalValue += mineralValue;
@@ -341,6 +355,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {
         require(weiAmount > 0, "Value must > zero");
 
+        //TODO: Could we run into an issue if the Price of ETH moves to much?
+
         uint256 price = getETHPrice();
 
         require(price > 0, "ETH must > zero");
@@ -356,12 +372,14 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         return (a * 1e18) / b;
     }
 
+    //Price paid by mineral owners to Mineral Token for our services
     function calculateAdminFee(uint256 tokensToMintInWei)
     public
     pure
     returns (uint256)
     {
         require(tokensToMintInWei > 0, "Fee must > zero");
+        //TODO: Add the ability to update the Fee
         return (tokensToMintInWei * 40) / 100;
     }
 
@@ -487,25 +505,25 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         return true;
     }
 
-    // Function to allow the SKR owner to "buy back" their SKR
-    function buyBackSKR(string memory assetIpfsCID) external {
-        // Ensure that the sender is the SKR owner
-        SKR storage skr = skrs[msg.sender][assetIpfsCID];
-        require(skr.owner == msg.sender, "Not the SKR owner");
+    // Function to allow the HOLDING owner to "buy back" their HOLDING
+    function buyBackHOLDING(string memory assetIpfsCID) external {
+        // Ensure that the sender is the HOLDING owner
+        HOLDING storage holding = holdings[msg.sender][assetIpfsCID];
+        require(holding.owner == msg.sender, "Not the HOLDING owner");
 
-        // Calculate the current value of the minerals in the SKR
-        uint256 skrValueInWei = calculateSKRValueInWei(
+        // Calculate the current value of the minerals in the HOLDING
+        uint256 holdingValueInWei = calculateHOLDINGValueInWei(
             msg.sender,
             assetIpfsCID
         );
 
-        // Ensure that the SKR value is greater than zero
-        require(skrValueInWei > 0, "SKR has no value");
+        // Ensure that the HOLDING value is greater than zero
+        require(holdingValueInWei > 0, "HOLDING has no value");
 
-        // Calculate the number of tokens to burn based on SKR value
-        uint256 tokensToBurn = computeTokenToBurnByWei(skrValueInWei);
+        // Calculate the number of tokens to burn based on HOLDING value
+        uint256 tokensToBurn = computeTokenToBurnByWei(holdingValueInWei);
 
-        // Ensure that the SKR owner has enough tokens for the buyback
+        // Ensure that the HOLDING owner has enough tokens for the buyback
         require(
             balanceOf(msg.sender) >= tokensToBurn,
             "Insufficient tokens for buyback"
@@ -514,40 +532,40 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         // Burn the tokens
         _burn(msg.sender, tokensToBurn);
 
-        // Reset SKR details
-        skr.owner = address(0);
-        skr.assetIpfsCID = "";
+        // Reset HOLDING details
+        holding.owner = address(0);
+        holding.assetIpfsCID = "";
 
-        // Emit an event to log the SKR buyback
-        emit SKRBuyback(msg.sender, tokensToBurn, skrValueInWei);
+        // Emit an event to log the HOLDING buyback
+        emit HOLDINGBuyback(msg.sender, tokensToBurn, holdingValueInWei);
     }
 
-    // Function to calculate the value of minerals in the SKR
-    function calculateSKRValueInWei(
-        address skrOwner,
+    // Function to calculate the value of minerals in the HOLDING
+    function calculateHOLDINGValueInWei(
+        address holdingOwner,
         string memory assetIpfsCID
     ) public view returns (uint256) {
-        SKR storage skr = skrs[skrOwner][assetIpfsCID];
-        require(skr.owner != address(0), "SKR not found");
+        HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
+        require(holding.owner != address(0), "HOLDING not found");
 
-        uint256 totalSKRValue = 0;
+        uint256 totalHOLDINGValue = 0;
 
-        // Calculate the value of each mineral in the SKR
+        // Calculate the value of each mineral in the HOLDING
         for (uint256 i = 0; i < mineralSymbols.length; i++) {
             string memory mineralSymbol = mineralSymbols[i];
-            Mineral storage mineral = skr.minerals[mineralSymbol];
+            Mineral storage mineral = holding.minerals[mineralSymbol];
             if (bytes(mineral.symbol).length > 0) {
-                totalSKRValue += calculateMineralValueInWei(
+                totalHOLDINGValue += calculateMineralValueInWei(
                     mineral.symbol,
                     mineral.ounces
                 );
             }
         }
 
-        return totalSKRValue;
+        return totalHOLDINGValue;
     }
 
-    // Function to calculate the number of tokens to burn based on SKR value
+    // Function to calculate the number of tokens to burn based on HOLDING value
     function computeTokenToBurnByWei(uint256 weiAmount)
     public
     view
@@ -577,30 +595,30 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         return divide(totalAssetValue, totalSupply());
     }
 
-    // Event to log SKR release
-    event SKRBuyback(
+    // Event to log HOLDING release
+    event HOLDINGBuyback(
         address indexed sender,
         uint256 tokensToBurn,
-        uint256 skrValueInWei
+        uint256 holdingValueInWei
     );
 
     // Event to log IPFS asset reference, mineral value, and mineral details
     event IPFSAssetReferenced(
         address indexed recipient,
-        address indexed skrOwner,
+        address indexed holdingOwner,
         string ipfsHash,
         uint256 mineralValue,
         uint256 tokenId
     );
 
     event MineralAdded(
-        address indexed skrOwner,
+        address indexed holdingOwner,
         string mineralSymbol,
         uint256 mineralOunces,
         uint256 mineralValue,
         uint256 tokensMinted,
         uint256 adminFee,
-        uint256 amountTransferredToSKROwner
+        uint256 amountTransferredToHOLDINGOwner
     );
 
     // Declare the event at the contract level
