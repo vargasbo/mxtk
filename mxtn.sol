@@ -19,6 +19,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 //TODO: We'll need to migrate the old contract data and tokens to this new contract
 //TODO: We'll need to test that the Upgradable is working as expected on UniSwap
 //TODO: We'll need an external code that monitors when prices event changes on the oracle and update the token price
+//TODO: We'll need to test via Ganche or other tools all functions and permutations
 
 contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
             OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -75,11 +76,14 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         mineralSymbols.push("CU");
         mineralSymbols.push("AU");
         mineralSymbols.push("GR");
+
+        //TODO: Add all the new minerals here or refactor into something better
     }
 
     // Price oracles for metals
     GraphitePriceOracle public graphitePriceOracleAddress;
     CopperPriceOracle public copperPriceOracleAddress;
+    //TODO: Add all the remaining oracle addresses or refactor into something better
 
     // Gas fee percentage
     uint256 public gasFeePercentage;
@@ -93,7 +97,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     //HashMap.HashMap private holdings;
 
     // Struct to represent HOLDING details. Holdings can be
-    // SKR, JRTOC, 83101, etc.
+    // SKR, JORC, 43-101, etc.
     struct HOLDING {
         address owner;
         string assetIpfsCID;
@@ -290,6 +294,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     function calculateTotalAssetValue() internal view returns (uint256) {
         uint256 totalValue = 0;
 
+        //TODO: This needs to be refactor for performance/cost
+
         // Get outer mapping keys
         address[] memory holdingOwners = holdings.keys();
 
@@ -333,6 +339,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
     // Function to add a mineral symbol to the array
     function addMineralSymbol(string memory mineralSymbol) public onlyOwner {
+        //TODO: For oil, since not on the periodic table, we'll need to use 'HC' for HydroCarbon. We'll need
+        // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
         for (uint256 i = 0; i < mineralSymbols.length; i++) {
             if (
@@ -388,6 +396,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
+        //TODO: Add the other minerals here
+
         // Call the appropriate oracle based on the mineral symbol
         if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("CU"))) {
             return calculateCopperValue(mineralOunces);
@@ -573,6 +583,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {
         require(weiAmount > 0, "Value must > zero");
 
+        //TODO: Could we have a race condition where the price has changed as we look to burn
         uint256 price = getTokenValue();
 
         require(price > 0, "Token value must be > zero");
