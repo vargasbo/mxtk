@@ -9,17 +9,127 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-
+import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import {GraphitePriceOracle} from "./GraphitePriceOracle.sol";
-import {CopperPriceOracle} from "./CopperPriceOracle.sol";
-
+import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
-//TODO: We'll need to migrate the old contract data and tokens to this new contract
-//TODO: We'll need to test that the Upgradable is working as expected on UniSwap
-//TODO: We'll need an external code that monitors when prices event changes on the oracle and update the token price
-//TODO: We'll need to test via Ganche or other tools all functions and permutations
+
+contract eventEmitter {
+    constructor(){
+
+    }
+
+    event eventEmitted(string,int);
+
+    function emitEvent(string memory _str,int _int) public {
+        emit eventEmitted(_str,_int);
+    }
+
+
+}
+
+
+contract PriceOracle is AggregatorV3Interface {
+  
+  string public name;
+  string public symbol;
+  address public admin;
+  MXTN public main;
+  int public Answer;
+  eventEmitter public emitter;
+
+  constructor(string memory _name,string memory _symbol,address _mxtn,address _eventEmitter,int initialPrice){
+    name = _name;
+    symbol = _symbol;
+    admin = msg.sender;
+    main =MXTN(_mxtn);
+    main.updateMineralPriceOracle(_symbol, address(this));
+    Answer = initialPrice;
+    emitter = eventEmitter(_eventEmitter);
+  }
+
+  modifier onlyAdmin{
+    require(msg.sender==admin,"you are not admin");
+    _;
+  }
+
+  function chandAdmin(address _new) public onlyAdmin{
+    admin = _new;
+  }
+
+  function decimals()
+    external
+    view
+    returns (
+      uint8
+    ){}
+
+  function description()
+    external
+    view
+    returns (
+      string memory
+    ){}
+
+  function version()
+    external
+    view
+    returns (
+      uint256
+    ){}
+
+  function getRoundData(
+    uint80 _roundId
+  )
+    external
+    view
+    returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound
+    ){}
+
+
+
+    function changeAnswer(int _num) public onlyAdmin {
+        Answer = _num;
+        main.updateAndComputeTokenPrice();
+        emitter.emitEvent(symbol,_num);
+    }
+
+  function latestRoundData()
+    external
+    view
+    returns (
+      uint80 roundId,
+      int256 answer,
+      uint256 startedAt,
+      uint256 updatedAt,
+      uint80 answeredInRound
+    ){
+        roundId =0;
+        answer = Answer;
+        startedAt =0;
+        updatedAt = 0;
+        answeredInRound = 0;
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+
 
 contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
             OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -54,71 +164,105 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     AggregatorV3Interface internal tanzanitePriceFeed;
     AggregatorV3Interface internal tungstenPriceFeed;
 
-    using EnumerableMap for EnumerableMap.AddressToUintMap;
+//    using EnumerableMap for EnumerableMap.AddressToUintMap;
+    mapping(string=>uint) public MineralPrices;
+    mapping(string=>address) public MineralPricesOracle;
+    uint internal initAssetvalue;
 
-    function initialize(address initialOwner) initializer public {
-        __ERC20_init("Mineral Token", "MXTK")
+    function initialize() initializer public {
+        __ERC20_init("Mineral Token", "MXTK");
         __ERC20Burnable_init();
         __ERC20Pausable_init();
-        __Ownable_init(initialOwner);
+        __Ownable_init(msg.sender);
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
-            0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
+            0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e
+            //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
         ); //ETH/USD address
         auPriceFeed = AggregatorV3Interface(
-            0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6
+            0x7b219F57a8e9C7303204Af681e9fA69d17ef626f
+            //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6
         ); //XAU/USD address
 
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
+        MineralPricesOracle["CU"] = address(0);
         mineralSymbols.push("AU");
+        MineralPrices["AU"] = 24000000;
         mineralSymbols.push("GR");
+        MineralPricesOracle["GR"] = address(0);
+        mineralSymbols.push("BA");
+        MineralPricesOracle["BA"] = address(0);
+        mineralSymbols.push("CH");
+                MineralPricesOracle["CH"] = address(0); 
+        mineralSymbols.push("CL");
+                MineralPricesOracle["CL"] = address(0);
+        mineralSymbols.push("CB");
+                MineralPricesOracle["CB"] = address(0);       
+        mineralSymbols.push("DM");
+                MineralPricesOracle["DM"] = address(0);     
+        mineralSymbols.push("ID");
+                MineralPricesOracle["ID"] = address(0);  
+        mineralSymbols.push("IR");
+                MineralPricesOracle["IR"] = address(0);   
+        mineralSymbols.push("LT");
+                MineralPricesOracle["LT"] = address(0);  
+        mineralSymbols.push("MS");
+                MineralPricesOracle["MS"] = address(0);
+        mineralSymbols.push("MG");
+                MineralPricesOracle["MG"] = address(0); 
+        mineralSymbols.push("NK");
+                MineralPricesOracle["NK"] = address(0);    
+        mineralSymbols.push("OI");
+                MineralPricesOracle["OI"] = address(0);     
+        mineralSymbols.push("OS");
+                MineralPricesOracle["OS"] = address(0); 
+        mineralSymbols.push("PD");
+                MineralPricesOracle["PD"] = address(0);
+        mineralSymbols.push("PT");
+                MineralPricesOracle["PT"] = address(0);
+        mineralSymbols.push("RD");
+                MineralPricesOracle["RD"] = address(0);
+        mineralSymbols.push("RT");
+                MineralPricesOracle["RT"] = address(0);
+        mineralSymbols.push("SL");
+                MineralPricesOracle["SL"] = address(0);
+        mineralSymbols.push("TZ");
+               MineralPricesOracle["TZ"] = address(0); 
+        mineralSymbols.push("TG");
+                MineralPricesOracle["TG"] = address(0); 
 
-        //TODO: Add all the new minerals here or refactor into something better
+        setInitialValues();
+
     }
 
-    // Price oracles for metals
-    GraphitePriceOracle public graphitePriceOracleAddress;
-    CopperPriceOracle public copperPriceOracleAddress;
-    //TODO: Add all the remaining oracle addresses or refactor into something better
+
 
     // Gas fee percentage
     uint256 public gasFeePercentage;
 
-    // Mapping of HOLDINGs to their respective owners
-    // Mapping of HOLDINGs for each address using assetIpfsCID as the key
-    mapping(address => mapping(string => HOLDING)) public holdings;
-
-    //TODO: We might want to consider breaking down the holdings variable for performance reasons; examples below
-    //EnumerableMap.AddressToUintMap private holdings;
-    //HashMap.HashMap private holdings;
-
-    // Struct to represent HOLDING details. Holdings can be
-    // SKR, JORC, 43-101, etc.
-    struct HOLDING {
+    mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
+    
+    struct newHOLDINGs {
         address owner;
         string assetIpfsCID;
-        mapping(string => Mineral) minerals; // Mapping of minerals inside the HOLDING
+        string mineralSymbol;
+        uint ounces;
+    
     }
+    
+    newHOLDINGs[] public newHOLDINGArray;
+    uint public newHOLDINGsIndex;
+    
+    
 
-    // Struct to represent mineral details.
-    //TODO: Given that we'll now support Oil and Goal, we might want to use other unit types. Will want to test
-    // if the uint256 can support big oil contracts.
-    // than just ounces.
-    struct Mineral {
-        string symbol;
-        uint256 ounces;
-    }
-
-    // Add this array to keep track of mineral symbols
+      // Add this array to keep track of mineral symbols
     string[] public mineralSymbols;
 
-    // Mapping to associate mineral details with each minted token
-    mapping(uint256 => Mineral) public mineralDetails;
-
+  
     uint256 public totalAssetValue; // Total value of all assets in the contract
 
     function pause() public onlyOwner {
@@ -143,15 +287,11 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         super._update(from, to, value);
     }
 
-    //TODO: Might not be needed anymore
-    // function _beforeTokenTransfer(
-    //     address from,
-    //     address to,
-    //     uint256 amount
-    // ) internal override(ERC20, ERC20Burnable) whenNotPaused {
-    //     super._beforeTokenTransfer(from, to, amount);
-    // }
+  
+    event MineralPriceUpdated(string,uint);
 
+  
+    
     function updateETHPriceOracle(address ethOracleAddress) external onlyOwner {
         require(ethOracleAddress != address(0), "Invalid address");
         ethPriceFeed = AggregatorV3Interface(ethOracleAddress);
@@ -165,39 +305,15 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         auPriceFeed = AggregatorV3Interface(goldOracleAddress);
     }
 
-    // Set the address of the Graphite price oracle
-    function setGraphitePriceOracle(GraphitePriceOracle _oracleAddress)
-    external
-    onlyOwner
+    function updateMineralPriceOracle(string memory _min,address priceOracleAddress)
+    public
+    
     {
-        graphitePriceOracleAddress = _oracleAddress;
+
+        MineralPricesOracle[_min]=priceOracleAddress;
     }
 
-    // Set the address of the Copper price oracle
-    function setCopperPriceOracle(CopperPriceOracle _oracleAddress)
-    external
-    onlyOwner
-    {
-        copperPriceOracleAddress = _oracleAddress;
-    }
-
-    //TODO: Add the Update/Set Oracles for all the remaining Oracles
-
-    // Function to add a new HOLDING
-    function addHOLDING(address _holdingOwner, string memory _assetIpfsCID)
-    external
-    onlyOwner
-    {
-        require(holdings[_holdingOwner][_assetIpfsCID].owner == address(0), "HOLDING already exists");
-
-
-        // Create a new HOLDING struct
-        HOLDING storage newHOLDING = holdings[_holdingOwner][_assetIpfsCID];
-
-        // Initialize the HOLDING struct with the provided data
-        newHOLDING.assetIpfsCID = _assetIpfsCID;
-        newHOLDING.owner = _holdingOwner;
-    }
+  
 
     ///A holding can have N number of minerals inside of it.
     function addMineralToHOLDING(
@@ -211,23 +327,21 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         require(mineralOunces > 0, "Oz must be greater than zero");
         require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
 
-        // Access a specific HOLDING for an address using assetIpfsCID
-        HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
 
-        // Ensure that the HOLDING owner exists
-        require(holding.owner != address(0), "HOLDING owner does not exist");
 
         // Check if the mineral already exists for this HOLDING
         require(
-            holding.minerals[mineralSymbol].ounces == 0,
+            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]==0,
             "Mineral already exists"
         );
 
-        // Add the mineral details to the HOLDING storage
-        holding.minerals[mineralSymbol] = Mineral({
-            symbol: mineralSymbol,
-            ounces: mineralOunces
-        });
+  
+        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
+
+        newHOLDINGs memory tx1 = newHOLDINGs(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
+        newHOLDINGArray.push(tx1);
+        newHOLDINGsIndex++;
+
 
         // Calculation logic
 
@@ -261,6 +375,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
         addMineralSymbol(mineralSymbol);
 
+        updateAndComputeTokenPrice();
         // Events, etc...
         emit MineralAdded(
             holdingOwner,
@@ -273,14 +388,14 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         );
     }
 
+    event TokenPriceUpdated(uint);
+
     // Function to update prices of underlying assets and compute token price
     function updateAndComputeTokenPrice(
-        uint256 newGraphitePrice,
-        uint256 newCopperPrice
-    ) external onlyOwner {
+        // uint256 newGraphitePrice,
+        // uint256 newCopperPrice
+    ) public {
         // Update the prices of underlying assets
-        graphitePriceOracleAddress.setGraphitePrice(newGraphitePrice);
-        copperPriceOracleAddress.setCopperPrice(newCopperPrice);
 
         // Recalculate the total asset value and token price
         totalAssetValue = calculateTotalAssetValue();
@@ -296,36 +411,15 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
         //TODO: This needs to be refactor for performance/cost
 
-        // Get outer mapping keys
-        address[] memory holdingOwners = holdings.keys();
 
-        for (uint256 i = 0; i < holdingOwners.length; i++) {
-            address holdingOwner = holdingOwners[i];
-            string[] memory assetIpfsCIDs = holdings[holdingOwner].keys();
 
-            for (uint256 j = 0; j < assetIpfsCIDs.length; j++) {
-                string memory assetIpfsCID = assetIpfsCIDs[j];
-                HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
-
-                for (uint256 k = 0; k < mineralSymbols.length; k++) {
-                    string memory mineralSymbol = mineralSymbols[k];
-
-                    if (
-                        holding.owner != address(0) &&
-                        bytes(holding.minerals[mineralSymbol].symbol).length > 0
-                    ) {
-                        uint256 mineralValue = calculateMineralValueInWei(
-                            holding.minerals[mineralSymbol].symbol,
-                            holding.minerals[mineralSymbol].ounces
-                        );
-
-                        totalValue += mineralValue;
-                    }
-                }
-            }
+        for(uint i = 0 ; i < newHOLDINGArray.length;i++){
+              totalValue+=  calculateMineralValueInWei(newHOLDINGArray[i].mineralSymbol,newHOLDINGArray[i].ounces); 
         }
 
-        return totalValue;
+
+
+        return totalValue+initAssetvalue;
     }
 
     // Function to compute the new token price based on total asset value
@@ -338,8 +432,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     }
 
     // Function to add a mineral symbol to the array
-    function addMineralSymbol(string memory mineralSymbol) public onlyOwner {
-        //TODO: For oil, since not on the periodic table, we'll need to use 'HC' for HydroCarbon. We'll need
+    function addMineralSymbol(string memory mineralSymbol) public {
+
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
         for (uint256 i = 0; i < mineralSymbols.length; i++) {
@@ -363,7 +457,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {
         require(weiAmount > 0, "Value must > zero");
 
-        //TODO: Could we run into an issue if the Price of ETH moves to much?
+
 
         uint256 price = getETHPrice();
 
@@ -396,42 +490,17 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
-        //TODO: Add the other minerals here
 
-        // Call the appropriate oracle based on the mineral symbol
-        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("CU"))) {
-            return calculateCopperValue(mineralOunces);
-        } else if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
-            return calculateGoldValue(mineralOunces);
-        } else if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("GR"))) {
-            return calculateGraphiteValue(mineralOunces);
-        } else {
-            revert("Unsupported mineral symbol");
-        }
+
+        return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
     }
 
-    function getCopperPrice() public view returns (uint256) {
-        // Access the copperPrice directly from the oracle contract
-        uint256 price = copperPriceOracleAddress.copperPrice();
-        require(price > 0, "Price feed error");
-
-        return uint256(price);
-    }
-
-    // Function to calculate the value of Copper based on ounces from an oracle
-    function calculateCopperValue(uint256 metalOunces)
-    public
-    view
-    returns (uint256)
-    {
-        // Ensure that the copperPriceOracleAddress is set
-        require(
-            address(copperPriceOracleAddress) != address(0),
-            "Copper oracle address not set"
-        );
-
-        uint256 copperPricePerOunce = getCopperPrice();
-        return metalOunces * copperPricePerOunce;
+    function getMineralPrice(string memory _min) public view returns (int256) {
+        
+        
+        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[_min]); 
+        (, int256 price, , , ) = tx1.latestRoundData();
+        return price;
     }
 
     function getETHPrice() public view returns (uint256) {
@@ -460,30 +529,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         return metalOunces * price;
     }
 
-    function getGraphitePrice() public view returns (uint256) {
-        uint256 price = graphitePriceOracleAddress.graphitePrice();
-        require(price > 0, "Price feed error");
 
-        return uint256(price);
-    }
-
-    // Function to calculate the value of Graphite based on ounces from an oracle
-    function calculateGraphiteValue(uint256 metalOunces)
-    public
-    view
-    returns (uint256)
-    {
-        // Ensure that the graphitePriceOracleAddress is set
-        require(
-            address(graphitePriceOracleAddress) != address(0),
-            "Graphite oracle address not set"
-        );
-
-        uint256 graphitePricePerOunce = getGraphitePrice();
-
-        // Calculate the value based on the retrieved graphitePrice and metal ounces
-        return metalOunces * graphitePricePerOunce;
-    }
 
     function transfer(address to, uint256 amount)
     public
@@ -516,15 +562,15 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     }
 
     // Function to allow the HOLDING owner to "buy back" their HOLDING
-    function buyBackHOLDING(string memory assetIpfsCID) external {
+    function buyBackHOLDING(
+        //string memory assetIpfsCID
+        ) external {
         // Ensure that the sender is the HOLDING owner
-        HOLDING storage holding = holdings[msg.sender][assetIpfsCID];
-        require(holding.owner == msg.sender, "Not the HOLDING owner");
 
         // Calculate the current value of the minerals in the HOLDING
         uint256 holdingValueInWei = calculateHOLDINGValueInWei(
-            msg.sender,
-            assetIpfsCID
+            msg.sender
+
         );
 
         // Ensure that the HOLDING value is greater than zero
@@ -543,8 +589,8 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         _burn(msg.sender, tokensToBurn);
 
         // Reset HOLDING details
-        holding.owner = address(0);
-        holding.assetIpfsCID = "";
+        // holding.owner = address(0);
+        // holding.assetIpfsCID = "";
 
         // Emit an event to log the HOLDING buyback
         emit HOLDINGBuyback(msg.sender, tokensToBurn, holdingValueInWei);
@@ -552,22 +598,18 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
     // Function to calculate the value of minerals in the HOLDING
     function calculateHOLDINGValueInWei(
-        address holdingOwner,
-        string memory assetIpfsCID
+        address holdingOwner
+        //,string memory assetIpfsCID
     ) public view returns (uint256) {
-        HOLDING storage holding = holdings[holdingOwner][assetIpfsCID];
-        require(holding.owner != address(0), "HOLDING not found");
 
         uint256 totalHOLDINGValue = 0;
 
         // Calculate the value of each mineral in the HOLDING
-        for (uint256 i = 0; i < mineralSymbols.length; i++) {
-            string memory mineralSymbol = mineralSymbols[i];
-            Mineral storage mineral = holding.minerals[mineralSymbol];
-            if (bytes(mineral.symbol).length > 0) {
+        for (uint256 i = 0; i < newHOLDINGArray.length; i++) {
+            if (newHOLDINGArray[i].owner==holdingOwner) {
                 totalHOLDINGValue += calculateMineralValueInWei(
-                    mineral.symbol,
-                    mineral.ounces
+                    newHOLDINGArray[i].mineralSymbol,
+                    newHOLDINGArray[i].ounces
                 );
             }
         }
@@ -583,7 +625,6 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {
         require(weiAmount > 0, "Value must > zero");
 
-        //TODO: Could we have a race condition where the price has changed as we look to burn
         uint256 price = getTokenValue();
 
         require(price > 0, "Token value must be > zero");
@@ -632,6 +673,34 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         uint256 amountTransferredToHOLDINGOwner
     );
 
+   
+
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
+
+        bool public calledOnce;
+
+    function setInitialValues() internal {
+        require(!calledOnce,"already called");
+        _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696); //1
+        _mint(0xb36C15f1ED5cedb9E913218219016d8Cf5Ac864F,4255602869571497331219493); //2
+        _mint(0x121B039CBc60aA1bf563306eB24013D0e1bA0989,2672762772000000000000000); //3
+        _mint(0xB3f46cC55a50225f197AE5a4d1545350f48B2F0b,624477244200000000000000);  //4
+
+        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000); //5 
+        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000); //6 
+        _mint(0x4bD9Ea8D612aD197de3d3180db0A60bC7Cbc3189,198600000000000000000); //7
+        _mint(0xB9aD5fd45F3A36Be70E2fD2F661060ddc1D0fc09,198600000000000000000); //8
+        _mint(0xd79497C683BD0eA45DaFc8b732cBf7344F5Df231,3152775000000000000); //9
+        _mint(0xE1a0508BB886C110f2238C0232795c30d99C71D7,93448174827476894);  //10
+        _mint(0xDf0a2F8E8c5a78D1E501382060C803750C5E5821,30783000000000000);  //11
+        _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
+        _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
+
+        initAssetvalue = 1933745671142000000;
+        totalAssetValue = 1933745671142000000;
+        
+
+        calledOnce = true;
+    }
 }
