@@ -121,15 +121,6 @@ contract PriceOracle is AggregatorV3Interface {
 }
 
 
-
-
-
-
-
-
-
-
-
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
             OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
@@ -163,7 +154,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     AggregatorV3Interface internal tanzanitePriceFeed;
     AggregatorV3Interface internal tungstenPriceFeed;
 
-//    using EnumerableMap for EnumerableMap.AddressToUintMap;
     mapping(string=>uint) public MineralPrices;
     mapping(string=>address) public MineralPricesOracle;
     uint256 internal initAssetValue;
@@ -179,18 +169,18 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
             0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e
-            //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
+            //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
         ); //ETH/USD address
         auPriceFeed = AggregatorV3Interface(
             0x7b219F57a8e9C7303204Af681e9fA69d17ef626f
-            //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6
+            //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
         ); //XAU/USD address
 
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 0;   //this is the only one using from chainlink
+        MineralPrices["AU"] = 0;   //this is the only one using from chainLink
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
         mineralSymbols.push("BA");
@@ -253,15 +243,11 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     
     }
     
-    newHOLDINGs[] public newHOLDINGArray;
+    newHOLDINGs[] public newHoldingArray;
     uint256 public newHOLDINGsIndex;
-    
-    
 
-      // Add this array to keep track of mineral symbols
+    // Add this array to keep track of mineral symbols
     string[] public mineralSymbols;
-
-  
     uint256 public totalAssetValue; // Total value of all assets in the contract
 
     function pause() public onlyOwner {
@@ -306,7 +292,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
     function updateMineralPriceOracle(string memory _min,address priceOracleAddress)
     public
-    
     {
 
         MineralPricesOracle[_min]=priceOracleAddress;
@@ -338,12 +323,11 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
 
         newHOLDINGs memory tx1 = newHOLDINGs(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
-        newHOLDINGArray.push(tx1);
+        newHoldingArray.push(tx1);
         newHOLDINGsIndex++;
 
 
         // Calculation logic
-
         uint256 mineralValueInWei = calculateMineralValueInWei(
             mineralSymbol,
             mineralOunces
@@ -390,12 +374,8 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     event TokenPriceUpdated(uint);
 
     // Function to update prices of underlying assets and compute token price
-    function updateAndComputeTokenPrice(
-        // uint256 newGraphitePrice,
-        // uint256 newCopperPrice
-    ) public {
+    function updateAndComputeTokenPrice() public {
         // Update the prices of underlying assets
-
         // Recalculate the total asset value and token price
         totalAssetValue = calculateTotalAssetValue();
         uint256 newTokenPrice = computeTokenPrice();
@@ -408,15 +388,9 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     function calculateTotalAssetValue() internal view returns (uint256) {
         uint256 totalValue = 0;
 
-        //TODO: This needs to be refactor for performance/cost
-
-
-
-        for(uint256 i = 0 ; i < newHOLDINGArray.length;i++){
-              totalValue+=  calculateMineralValueInWei(newHOLDINGArray[i].mineralSymbol,newHOLDINGArray[i].ounces); 
+        for(uint256 i = 0 ; i < newHoldingArray.length;i++){
+              totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
         }
-
-
 
         return totalValue+ initAssetValue;
     }
@@ -456,8 +430,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     {
         require(weiAmount > 0, "Value must > zero");
 
-
-
         uint256 price = getETHPrice();
 
         require(price > 0, "ETH must > zero");
@@ -480,7 +452,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     returns (uint256)
     {
         require(tokensToMintInWei > 0, "Fee must > zero");
-        //TODO: Add the ability to update the Fee
         return (tokensToMintInWei * 40) / 100;
     }
 
@@ -489,21 +460,17 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
-
-
         return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
     }
 
     function getMineralPrice(string memory _min) public view returns (int256) {
-        
-        
-        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[_min]); 
+        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[_min]);
         (, int256 price, , , ) = tx1.latestRoundData();
         return price;
     }
 
     function getETHPrice() public view returns (uint256) {
-        // Get the latest ETH/USD price from Chainlink in 8 decimal position
+        // Get the latest ETH/USD price from ChainLink in 8 decimal position
         (, int256 price, , , ) = ethPriceFeed.latestRoundData();
         require(price > 0, "Price feed error");
 
@@ -527,8 +494,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         //Gold is returned in
         return metalOunces * price;
     }
-
-
 
     function transfer(address to, uint256 amount)
     public
@@ -561,7 +526,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     }
 
     // Function to allow the HOLDING owner to "buy back" their HOLDING
-    function buyBackHOLDING(
+    function buyBackHolding(
         //string memory assetIpfsCID
         ) external {
         // Ensure that the sender is the HOLDING owner
@@ -569,7 +534,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         // Calculate the current value of the minerals in the HOLDING
         uint256 holdingValueInWei = calculateHOLDINGValueInWei(
             msg.sender
-
         );
 
         // Ensure that the HOLDING value is greater than zero
@@ -587,8 +551,6 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         // Burn the tokens
         _burn(msg.sender, tokensToBurn);
 
- 
-
         // Emit an event to log the HOLDING buyback
         emit HoldingBuyback(msg.sender, tokensToBurn, holdingValueInWei);
     }
@@ -599,19 +561,19 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
  
     ) public view returns (uint256) {
 
-        uint256 totalHOLDINGValue = 0;
+        uint256 totalHoldingValue = 0;
 
         // Calculate the value of each mineral in the HOLDING
-        for (uint256 i = 0; i < newHOLDINGArray.length; i++) {
-            if (newHOLDINGArray[i].owner==holdingOwner) {
-                totalHOLDINGValue += calculateMineralValueInWei(
-                    newHOLDINGArray[i].mineralSymbol,
-                    newHOLDINGArray[i].ounces
+        for (uint256 i = 0; i < newHoldingArray.length; i++) {
+            if (newHoldingArray[i].owner==holdingOwner) {
+                totalHoldingValue += calculateMineralValueInWei(
+                    newHoldingArray[i].mineralSymbol,
+                    newHoldingArray[i].ounces
                 );
             }
         }
 
-        return totalHOLDINGValue;
+        return totalHoldingValue;
     }
 
     // Function to calculate the number of tokens to burn based on HOLDING value
@@ -675,7 +637,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
 
-        bool public calledOnce;
+    bool public calledOnce;
 
     function setInitialValues() internal {
         require(!calledOnce,"already called");
