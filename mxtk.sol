@@ -166,7 +166,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 //    using EnumerableMap for EnumerableMap.AddressToUintMap;
     mapping(string=>uint) public MineralPrices;
     mapping(string=>address) public MineralPricesOracle;
-    uint256 internal initAssetvalue;
+    uint256 internal initAssetValue;
 
     function initialize() initializer public {
         __ERC20_init("Mineral Token", "MXTK");
@@ -418,7 +418,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
 
 
-        return totalValue+initAssetvalue;
+        return totalValue+ initAssetValue;
     }
 
     // Function to compute the new token price based on total asset value
@@ -590,7 +590,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
  
 
         // Emit an event to log the HOLDING buyback
-        emit HOLDINGBuyback(msg.sender, tokensToBurn, holdingValueInWei);
+        emit HoldingBuyback(msg.sender, tokensToBurn, holdingValueInWei);
     }
 
     // Function to calculate the value of minerals in the HOLDING
@@ -645,7 +645,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     }
 
     // Event to log HOLDING release
-    event HOLDINGBuyback(
+    event HoldingBuyback(
         address indexed sender,
         uint256 tokensToBurn,
         uint256 holdingValueInWei
@@ -694,7 +694,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
         _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
 
-        initAssetvalue = 1933745671142000000;
+        initAssetValue = 1933745671142000000;
         totalAssetValue = 1933745671142000000;
         
 
