@@ -12,7 +12,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 
 contract eventEmitter {
@@ -35,15 +34,15 @@ contract PriceOracle is AggregatorV3Interface {
   string public name;
   string public symbol;
   address public admin;
-  MXTN public main;
+  MXTK public main;
   int public Answer;
   eventEmitter public emitter;
 
-  constructor(string memory _name,string memory _symbol,address _mxtn,address _eventEmitter,int initialPrice){
+  constructor(string memory _name,string memory _symbol,address _MXTK,address _eventEmitter,int initialPrice){
     name = _name;
     symbol = _symbol;
     admin = msg.sender;
-    main =MXTN(_mxtn);
+    main =MXTK(_MXTK);
     main.updateMineralPriceOracle(_symbol, address(this));
     Answer = initialPrice;
     emitter = eventEmitter(_eventEmitter);
@@ -131,7 +130,7 @@ contract PriceOracle is AggregatorV3Interface {
 
 
 
-contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
+contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
             OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -167,7 +166,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 //    using EnumerableMap for EnumerableMap.AddressToUintMap;
     mapping(string=>uint) public MineralPrices;
     mapping(string=>address) public MineralPricesOracle;
-    uint internal initAssetvalue;
+    uint256 internal initAssetvalue;
 
     function initialize() initializer public {
         __ERC20_init("Mineral Token", "MXTK");
@@ -191,7 +190,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 24000000;
+        MineralPrices["AU"] = 0;   //this is the only one using from chainlink
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
         mineralSymbols.push("BA");
@@ -250,12 +249,12 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         address owner;
         string assetIpfsCID;
         string mineralSymbol;
-        uint ounces;
+        uint256 ounces;
     
     }
     
     newHOLDINGs[] public newHOLDINGArray;
-    uint public newHOLDINGsIndex;
+    uint256 public newHOLDINGsIndex;
     
     
 
@@ -413,7 +412,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
 
 
-        for(uint i = 0 ; i < newHOLDINGArray.length;i++){
+        for(uint256 i = 0 ; i < newHOLDINGArray.length;i++){
               totalValue+=  calculateMineralValueInWei(newHOLDINGArray[i].mineralSymbol,newHOLDINGArray[i].ounces); 
         }
 
@@ -588,9 +587,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         // Burn the tokens
         _burn(msg.sender, tokensToBurn);
 
-        // Reset HOLDING details
-        // holding.owner = address(0);
-        // holding.assetIpfsCID = "";
+ 
 
         // Emit an event to log the HOLDING buyback
         emit HOLDINGBuyback(msg.sender, tokensToBurn, holdingValueInWei);
@@ -599,7 +596,7 @@ contract MXTN is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     // Function to calculate the value of minerals in the HOLDING
     function calculateHOLDINGValueInWei(
         address holdingOwner
-        //,string memory assetIpfsCID
+ 
     ) public view returns (uint256) {
 
         uint256 totalHOLDINGValue = 0;
