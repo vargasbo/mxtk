@@ -34,10 +34,12 @@ contract PriceOracle is AggregatorV3Interface {
     address public admin;
     MXTK public main;
     int public _price;
-    uint public _version;
+    uint public _version = 1;
     eventEmitter public emitter;
     uint public _startedAt;
     uint public _updatedAt;
+    uint8 public _decimals = 8;
+
 
     constructor(string memory _name,string memory _symbol,address _mxtn,address _eventEmitter,int initialPrice){
         name = _name;
@@ -65,7 +67,7 @@ contract PriceOracle is AggregatorV3Interface {
     view
     returns (
         uint8
-    ){return 8;}
+    ){return _decimals;}
 
     function description()
     external
@@ -79,7 +81,7 @@ contract PriceOracle is AggregatorV3Interface {
     view
     returns (
         uint256
-    ){return 1;}
+    ){return _version;}
 
     function getRoundData(
         uint80 _roundId
