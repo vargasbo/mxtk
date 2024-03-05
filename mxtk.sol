@@ -35,7 +35,7 @@ contract PriceOracle is AggregatorV3Interface {
   string public symbol;
   address public admin;
   MXTK public main;
-  int public Answer;
+  int public answer;
   eventEmitter public emitter;
 
   constructor(string memory _name,string memory _symbol,address _MXTK,address _eventEmitter,int initialPrice){
@@ -44,7 +44,7 @@ contract PriceOracle is AggregatorV3Interface {
     admin = msg.sender;
     main =MXTK(_MXTK);
     main.updateMineralPriceOracle(_symbol, address(this));
-    Answer = initialPrice;
+    answer = initialPrice;
     emitter = eventEmitter(_eventEmitter);
   }
 
@@ -53,7 +53,7 @@ contract PriceOracle is AggregatorV3Interface {
     _;
   }
 
-  function chandAdmin(address _new) public onlyAdmin{
+  function changeAdmin(address _new) public onlyAdmin{
     admin = _new;
   }
 
@@ -94,7 +94,7 @@ contract PriceOracle is AggregatorV3Interface {
 
 
     function changeAnswer(int _num) public onlyAdmin {
-        Answer = _num;
+        answer = _num;
         main.updateAndComputeTokenPrice();
         emitter.emitEvent(symbol,_num);
     }
@@ -110,7 +110,7 @@ contract PriceOracle is AggregatorV3Interface {
       uint80 answeredInRound
     ){
         roundId =0;
-        answer = Answer;
+        answer = answer;
         startedAt =0;
         updatedAt = 0;
         answeredInRound = 0;
