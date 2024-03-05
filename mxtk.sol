@@ -14,9 +14,9 @@ import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/Ag
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 
+//Used to publish event changes from Price Oracle
 contract eventEmitter {
     constructor(){
-
     }
 
     event eventEmitted(string,int);
@@ -24,105 +24,109 @@ contract eventEmitter {
     function emitEvent(string memory _str,int _int) public {
         emit eventEmitted(_str,_int);
     }
-
-
 }
 
-
+//Create different Price Oracles instances for all minerals supported
 contract PriceOracle is AggregatorV3Interface {
-  
-  string public name;
-  string public symbol;
-  address public admin;
-  MXTK public main;
-  int public answer;
-  eventEmitter public emitter;
 
-  constructor(string memory _name,string memory _symbol,address _MXTK,address _eventEmitter,int initialPrice){
-    name = _name;
-    symbol = _symbol;
-    admin = msg.sender;
-    main =MXTK(_MXTK);
-    main.updateMineralPriceOracle(_symbol, address(this));
-    answer = initialPrice;
-    emitter = eventEmitter(_eventEmitter);
-  }
+    string public name;
+    string public symbol;
+    address public admin;
+    MXTK public main;
+    int public _price;
+    uint public _version;
+    eventEmitter public emitter;
+    uint public _startedAt;
+    uint public _updatedAt;
 
-  modifier onlyAdmin{
-    require(msg.sender==admin,"you are not admin");
-    _;
-  }
+    constructor(string memory _name,string memory _symbol,address _mxtn,address _eventEmitter,int initialPrice){
+        name = _name;
+        symbol = _symbol;
+        admin = msg.sender;
+        main = MXTK(_mxtn);
+        main.updateMineralPriceOracle(_symbol, address(this));
+        _price = initialPrice;
+        emitter = eventEmitter(_eventEmitter);
+        _startedAt = block.timestamp;
+        _updatedAt = block.timestamp;
+    }
 
-  function changeAdmin(address _new) public onlyAdmin{
-    admin = _new;
-  }
+    modifier onlyAdmin{
+        require(msg.sender==admin,"you are not admin");
+        _;
+    }
 
-  function decimals()
+    function changeAdmin(address _new) public onlyAdmin{
+        admin = _new;
+    }
+
+    function decimals()
     external
     view
     returns (
-      uint8
-    ){}
+        uint8
+    ){return 8;}
 
-  function description()
+    function description()
     external
     view
     returns (
-      string memory
-    ){}
+        string memory
+    ){return name;}
 
-  function version()
+    function version()
     external
     view
     returns (
-      uint256
-    ){}
+        uint256
+    ){return 1;}
 
-  function getRoundData(
-    uint80 _roundId
-  )
+    function getRoundData(
+        uint80 _roundId
+    )
     external
     view
     returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
-    ){}
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    ){roundId = _roundId;
+        answer = _price;
+        startedAt = 0;
+        updatedAt = block.timestamp;
+        answeredInRound = _roundId;
+    }
 
-
-
-    function changeAnswer(int _num) public onlyAdmin {
-        answer = _num;
+    function change_price(int _num) public onlyAdmin {
+        _price = _num;
         main.updateAndComputeTokenPrice();
+        _updatedAt = block.timestamp;
         emitter.emitEvent(symbol,_num);
     }
 
-  function latestRoundData()
+    function latestRoundData()
     external
     view
     returns (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 answeredInRound
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
     ){
         roundId =0;
-        answer = answer;
-        startedAt =0;
-        updatedAt = 0;
+        answer = _price;
+        startedAt =_startedAt;
+        updatedAt = _updatedAt;
         answeredInRound = 0;
 
     }
-
-
 }
 
-
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
-            OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -169,11 +173,11 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
             0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e
-            //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
+        //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
         ); //ETH/USD address
         auPriceFeed = AggregatorV3Interface(
             0x7b219F57a8e9C7303204Af681e9fA69d17ef626f
-            //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
+        //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
         ); //XAU/USD address
 
         // Initialize mineralSymbols with default symbols
@@ -186,43 +190,43 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         mineralSymbols.push("BA");
         MineralPricesOracle["BA"] = address(0);
         mineralSymbols.push("CH");
-                MineralPricesOracle["CH"] = address(0); 
+        MineralPricesOracle["CH"] = address(0);
         mineralSymbols.push("CL");
-                MineralPricesOracle["CL"] = address(0);
+        MineralPricesOracle["CL"] = address(0);
         mineralSymbols.push("CB");
-                MineralPricesOracle["CB"] = address(0);       
+        MineralPricesOracle["CB"] = address(0);
         mineralSymbols.push("DM");
-                MineralPricesOracle["DM"] = address(0);     
+        MineralPricesOracle["DM"] = address(0);
         mineralSymbols.push("ID");
-                MineralPricesOracle["ID"] = address(0);  
+        MineralPricesOracle["ID"] = address(0);
         mineralSymbols.push("IR");
-                MineralPricesOracle["IR"] = address(0);   
+        MineralPricesOracle["IR"] = address(0);
         mineralSymbols.push("LT");
-                MineralPricesOracle["LT"] = address(0);  
+        MineralPricesOracle["LT"] = address(0);
         mineralSymbols.push("MS");
-                MineralPricesOracle["MS"] = address(0);
+        MineralPricesOracle["MS"] = address(0);
         mineralSymbols.push("MG");
-                MineralPricesOracle["MG"] = address(0); 
+        MineralPricesOracle["MG"] = address(0);
         mineralSymbols.push("NK");
-                MineralPricesOracle["NK"] = address(0);    
+        MineralPricesOracle["NK"] = address(0);
         mineralSymbols.push("OI");
-                MineralPricesOracle["OI"] = address(0);     
+        MineralPricesOracle["OI"] = address(0);
         mineralSymbols.push("OS");
-                MineralPricesOracle["OS"] = address(0); 
+        MineralPricesOracle["OS"] = address(0);
         mineralSymbols.push("PD");
-                MineralPricesOracle["PD"] = address(0);
+        MineralPricesOracle["PD"] = address(0);
         mineralSymbols.push("PT");
-                MineralPricesOracle["PT"] = address(0);
+        MineralPricesOracle["PT"] = address(0);
         mineralSymbols.push("RD");
-                MineralPricesOracle["RD"] = address(0);
+        MineralPricesOracle["RD"] = address(0);
         mineralSymbols.push("RT");
-                MineralPricesOracle["RT"] = address(0);
+        MineralPricesOracle["RT"] = address(0);
         mineralSymbols.push("SL");
-                MineralPricesOracle["SL"] = address(0);
+        MineralPricesOracle["SL"] = address(0);
         mineralSymbols.push("TZ");
-               MineralPricesOracle["TZ"] = address(0); 
+        MineralPricesOracle["TZ"] = address(0);
         mineralSymbols.push("TG");
-                MineralPricesOracle["TG"] = address(0); 
+        MineralPricesOracle["TG"] = address(0);
 
         setInitialValues();
 
@@ -234,15 +238,15 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     uint256 public gasFeePercentage;
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
-    
+
     struct newHOLDINGs {
         address owner;
         string assetIpfsCID;
         string mineralSymbol;
         uint256 ounces;
-    
+
     }
-    
+
     newHOLDINGs[] public newHoldingArray;
     uint256 public newHOLDINGsIndex;
 
@@ -272,11 +276,11 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         super._update(from, to, value);
     }
 
-  
+
     event MineralPriceUpdated(string,uint);
 
-  
-    
+
+
     function updateETHPriceOracle(address ethOracleAddress) external onlyOwner {
         require(ethOracleAddress != address(0), "Invalid address");
         ethPriceFeed = AggregatorV3Interface(ethOracleAddress);
@@ -297,7 +301,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         MineralPricesOracle[_min]=priceOracleAddress;
     }
 
-  
+
 
     ///A holding can have N number of minerals inside of it.
     function addMineralToHOLDING(
@@ -319,7 +323,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
             "Mineral already exists"
         );
 
-  
+
         newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
 
         newHOLDINGs memory tx1 = newHOLDINGs(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
@@ -389,7 +393,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         uint256 totalValue = 0;
 
         for(uint256 i = 0 ; i < newHoldingArray.length;i++){
-              totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
+            totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
         }
 
         return totalValue+ initAssetValue;
@@ -527,8 +531,8 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
     // Function to allow the HOLDING owner to "buy back" their HOLDING
     function buyBackHolding(
-        //string memory assetIpfsCID
-        ) external {
+    //string memory assetIpfsCID
+    ) external {
         // Ensure that the sender is the HOLDING owner
 
         // Calculate the current value of the minerals in the HOLDING
@@ -558,7 +562,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
     // Function to calculate the value of minerals in the HOLDING
     function calculateHOLDINGValueInWei(
         address holdingOwner
- 
+
     ) public view returns (uint256) {
 
         uint256 totalHoldingValue = 0;
@@ -632,7 +636,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         uint256 amountTransferredToHOLDINGOwner
     );
 
-   
+
 
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
@@ -646,8 +650,8 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
         _mint(0x121B039CBc60aA1bf563306eB24013D0e1bA0989,2672762772000000000000000); //3
         _mint(0xB3f46cC55a50225f197AE5a4d1545350f48B2F0b,624477244200000000000000);  //4
 
-        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000); //5 
-        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000); //6 
+        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000); //5
+        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000); //6
         _mint(0x4bD9Ea8D612aD197de3d3180db0A60bC7Cbc3189,198600000000000000000); //7
         _mint(0xB9aD5fd45F3A36Be70E2fD2F661060ddc1D0fc09,198600000000000000000); //8
         _mint(0xd79497C683BD0eA45DaFc8b732cBf7344F5Df231,3152775000000000000); //9
@@ -658,7 +662,7 @@ contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC2
 
         initAssetValue = 1933745671142000000;
         totalAssetValue = 1933745671142000000;
-        
+
 
         calledOnce = true;
     }
