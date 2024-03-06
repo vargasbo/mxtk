@@ -13,120 +13,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
-
-//Used to publish event changes from Price Oracle
-contract eventEmitter {
-    constructor(){
-    }
-
-    event eventEmitted(string,int);
-
-    function emitEvent(string memory _str,int _int) public {
-        emit eventEmitted(_str,_int);
-    }
-}
-
-//Create different Price Oracles instances for all minerals supported
-contract PriceOracle is AggregatorV3Interface {
-
-    string public name;
-    string public symbol;
-    address public admin;
-    MXTK public main;
-    int public _price;
-    uint public _version = 1;
-    eventEmitter public emitter;
-    uint public _startedAt;
-    uint public _updatedAt;
-    uint8 public _decimals = 8;
-
-
-    constructor(string memory _name,string memory _symbol,address _mxtn,address _eventEmitter,int initialPrice){
-        name = _name;
-        symbol = _symbol;
-        admin = msg.sender;
-        main = MXTK(_mxtn);
-        main.updateMineralPriceOracle(_symbol, address(this));
-        _price = initialPrice;
-        emitter = eventEmitter(_eventEmitter);
-        _startedAt = block.timestamp;
-        _updatedAt = block.timestamp;
-    }
-
-    modifier onlyAdmin{
-        require(msg.sender==admin,"you are not admin");
-        _;
-    }
-
-    function changeAdmin(address _new) public onlyAdmin{
-        admin = _new;
-    }
-
-    function decimals()
-    external
-    view
-    returns (
-        uint8
-    ){return _decimals;}
-
-    function description()
-    external
-    view
-    returns (
-        string memory
-    ){return name;}
-
-    function version()
-    external
-    view
-    returns (
-        uint256
-    ){return _version;}
-
-    function getRoundData(
-        uint80 _roundId
-    )
-    external
-    view
-    returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ){roundId = _roundId;
-        answer = _price;
-        startedAt = 0;
-        updatedAt = block.timestamp;
-        answeredInRound = _roundId;
-    }
-
-    function change_price(int _num) public onlyAdmin {
-        _price = _num;
-        main.updateAndComputeTokenPrice();
-        _updatedAt = block.timestamp;
-        emitter.emitEvent(symbol,_num);
-    }
-
-    function latestRoundData()
-    external
-    view
-    returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ){
-        roundId =0;
-        answer = _price;
-        startedAt =_startedAt;
-        updatedAt = _updatedAt;
-        answeredInRound = 0;
-
-    }
-}
-
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
@@ -667,5 +553,117 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
 
         calledOnce = true;
+    }
+}
+
+//Used to publish event changes from Price Oracle
+contract PriceEventEmitter {
+    constructor(){
+    }
+    event eventEmitted(string,int);
+
+    function emitEvent(string memory _str,int _int) public {
+        emit eventEmitted(_str,_int);
+    }
+}
+
+//Create different Price Oracles instances for all minerals supported
+contract PriceOracle is AggregatorV3Interface {
+
+    string public name;
+    string public symbol;
+    address public admin;
+    MXTK public main;
+    int public _price;
+    uint public _version = 1;
+    PriceEventEmitter public emitter;
+    uint public _startedAt;
+    uint public _updatedAt;
+    uint8 public _decimals = 8;
+
+
+    constructor(string memory _name,string memory _symbol,address _mxtk,address _priceEventEmitter,int initialPrice){
+        name = _name;
+        symbol = _symbol;
+        admin = msg.sender;
+        main = MXTK(_mxtk);
+        main.updateMineralPriceOracle(_symbol, address(this));
+        _price = initialPrice;
+        emitter = PriceEventEmitter(_priceEventEmitter);
+        _startedAt = block.timestamp;
+        _updatedAt = block.timestamp;
+    }
+
+    modifier onlyAdmin{
+        require(msg.sender==admin,"you are not admin");
+        _;
+    }
+
+    function changeAdmin(address _new) public onlyAdmin{
+        admin = _new;
+    }
+
+    function decimals()
+    external
+    view
+    returns (
+        uint8
+    ){return _decimals;}
+
+    function description()
+    external
+    view
+    returns (
+        string memory
+    ){return name;}
+
+    function version()
+    external
+    view
+    returns (
+        uint256
+    ){return _version;}
+
+    function getRoundData(
+        uint80 _roundId
+    )
+    external
+    view
+    returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    ){roundId = _roundId;
+        answer = _price;
+        startedAt = 0;
+        updatedAt = block.timestamp;
+        answeredInRound = _roundId;
+    }
+
+    function change_price(int _num) public onlyAdmin {
+        _price = _num;
+        main.updateAndComputeTokenPrice();
+        _updatedAt = block.timestamp;
+        emitter.emitEvent(symbol,_num);
+    }
+
+    function latestRoundData()
+    external
+    view
+    returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    ){
+        roundId =0;
+        answer = _price;
+        startedAt =_startedAt;
+        updatedAt = _updatedAt;
+        answeredInRound = 0;
+
     }
 }
