@@ -236,7 +236,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Mint admin fee directly to the contract owner's wallet
         _mint(owner(), adminFeeInWei);
 
-        addMineralSymbol(mineralSymbol);
+        _addMineralSymbol(mineralSymbol);
 
         updateAndComputeTokenPrice();
         // Events, etc...
@@ -299,8 +299,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return totalAssetValue / totalSupply();
     }
 
-    // Function to add a mineral symbol to the array
-    function addMineralSymbol(string memory mineralSymbol) public onlyOwner{
+    function _addMineralSymbol(string memory mineralSymbol) internal {
 
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
@@ -316,6 +315,12 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         if (!symbolExists) {
             mineralSymbols.push(mineralSymbol);
         }
+    }
+
+
+    // Function to add a mineral symbol to the array
+    function addMineralSymbol(string memory mineralSymbol) public onlyOwner{
+        _addMineralSymbol(mineralSymbol);
     }
 
     function computeTokenToMintByWei(uint256 weiAmount)
