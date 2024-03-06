@@ -127,7 +127,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
 
-    struct newHOLDINGs {
+    struct newHoldings {
         address owner;
         string assetIpfsCID;
         string mineralSymbol;
@@ -135,8 +135,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     }
 
-    newHOLDINGs[] public newHoldingArray;
-    uint256 public newHOLDINGsIndex;
+    newHoldings[] public newHoldingArray;
+    uint256 public newHoldingIndex;
 
     // Add this array to keep track of mineral symbols
     string[] public mineralSymbols;
@@ -185,7 +185,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     function updateMineralPriceOracle(string memory _min,address priceOracleAddress)
     public
     {
-
         MineralPricesOracle[_min]=priceOracleAddress;
     }
 
@@ -214,9 +213,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
         newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
 
-        newHOLDINGs memory tx1 = newHOLDINGs(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
+        newHoldings memory tx1 = newHoldings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
         newHoldingArray.push(tx1);
-        newHOLDINGsIndex++;
+        newHoldingIndex++;
 
 
         // Calculation logic
@@ -232,18 +231,18 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
 
         // Calculate amount to transfer to HOLDING owner in Wei
-        uint256 amountToTransferToHOLDINGOwner = tokensToMintInWei - adminFeeInWei;
+        uint256 amountToTransferToHoldingOwner = tokensToMintInWei - adminFeeInWei;
 
         // Ensure that the amount to mint is greater than zero
         require(tokensToMintInWei > 0, "Tokens to mint > zero");
-        require(amountToTransferToHOLDINGOwner > 0, "Owner mint NOT > 0");
+        require(amountToTransferToHoldingOwner > 0, "Owner mint NOT > 0");
         require(adminFeeInWei > 0, "Admin fee NOT > 0");
 
         // Update totalAssetValue
         totalAssetValue += mineralValueInWei;
 
         // Mint tokens directly to the HOLDING owner's wallet
-        _mint(holdingOwner, amountToTransferToHOLDINGOwner);
+        _mint(holdingOwner, amountToTransferToHoldingOwner);
 
         // Mint admin fee directly to the contract owner's wallet
         _mint(owner(), adminFeeInWei);
@@ -259,7 +258,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
             mineralValueInWei,
             tokensToMintInWei,
             adminFeeInWei,
-            amountToTransferToHOLDINGOwner
+            amountToTransferToHoldingOwner
         );
     }
 
@@ -284,7 +283,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
             totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
         }
 
-        return totalValue+ initAssetValue;
+        return totalValue;
     }
 
     // Function to compute the new token price based on total asset value
@@ -297,7 +296,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
     // Function to add a mineral symbol to the array
-    function addMineralSymbol(string memory mineralSymbol) public {
+    function addMineralSymbol(string memory mineralSymbol) public onlyOwner{
 
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
@@ -424,7 +423,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Ensure that the sender is the HOLDING owner
 
         // Calculate the current value of the minerals in the HOLDING
-        uint256 holdingValueInWei = calculateHOLDINGValueInWei(
+        uint256 holdingValueInWei = calculateHoldingValueInWei(
             msg.sender
         );
 
@@ -448,7 +447,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
     // Function to calculate the value of minerals in the HOLDING
-    function calculateHOLDINGValueInWei(
+    function calculateHoldingValueInWei(
         address holdingOwner
 
     ) public view returns (uint256) {
