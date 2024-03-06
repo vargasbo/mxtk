@@ -70,11 +70,15 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
+        MineralPrices["CU"] = 0; //default value for copper over from existing holdings
+
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 191784750000000;  //this is the only one using from chainLink
+        MineralPrices["AU"] = 0;  //this is the only one using from chainLink
+
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
-        MineralPrices["GR"] = 100000000;        //default value since porting over existing Holdings
+        MineralPrices["GR"] = 0;  //default value since porting over existing Holdings
+
         mineralSymbols.push("BA");
         MineralPricesOracle["BA"] = address(0);
         mineralSymbols.push("CH");
@@ -556,12 +560,16 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
         _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
 
+        calledOnce = true;
+    }
+
+    //To be called after the proxy has been deployed
+    function addInitialMinerals() external onlyOwner {
         // Add initial minerals using the addMineralToHolding function
         _addMineralToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "Qmb4am5G3yZKfQd3nBtuhWHmXTgzr6y6cV8dFwp3f9WTGn", "GR", 192000000000);
         _addMineralToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "QmRohsANeKkPktGDmfWdpKuBmcCizEJS2TnXV6m1tBdYAQ", "AU", 71651);
-
-        calledOnce = true;
     }
+
 }
 
 //Used to publish event changes from Price Oracle
