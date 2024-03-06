@@ -193,14 +193,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory mineralSymbol,
         uint256 mineralOunces
     ) internal {
-        // Check if the mineral already exists for this HOLDING or in originalMineralOunces
+        // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
             newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
             "Mineral already exists"
         );
 
 
-        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
+        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] = mineralOunces;
 
         Holdings memory tx1 = Holdings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
         newHoldingArray.push(tx1);
@@ -219,7 +219,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Calculate admin fee
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
 
-        // Calculate amount to transfer to HOLDING owner in Wei
+        // Calculate amount to transfer to Holding owner in Wei
         uint256 amountToTransferToHoldingOwner = tokensToMintInWei - adminFeeInWei;
 
         // Ensure that the amount to mint is greater than zero
@@ -230,7 +230,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Update totalAssetValue
         totalAssetValue += mineralValueInWei;
 
-        // Mint tokens directly to the HOLDING owner's wallet
+        // Mint tokens directly to the Holding owner's wallet
         _mint(holdingOwner, amountToTransferToHoldingOwner);
 
         // Mint admin fee directly to the contract owner's wallet
@@ -252,13 +252,13 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
 
-    function addMineralToHOLDING(
+    function addMineralToHolding(
         address holdingOwner,
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
     ) external onlyOwner {
-        require(holdingOwner != address(0), "HOLDING not found");
+        require(holdingOwner != address(0), "Holding not found");
         require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
         require(mineralOunces > 0, "Oz must be greater than zero");
         require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
@@ -420,24 +420,24 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return true;
     }
 
-    // Function to allow the HOLDING owner to "buy back" their HOLDING
+    // Function to allow the Holding owner to "buy back" their Holding
     function buyBackHolding(
     //string memory assetIpfsCID
     ) external {
-        // Ensure that the sender is the HOLDING owner
+        // Ensure that the sender is the Holding owner
 
-        // Calculate the current value of the minerals in the HOLDING
+        // Calculate the current value of the minerals in the Holding
         uint256 holdingValueInWei = calculateHoldingValueInWei(
             msg.sender
         );
 
-        // Ensure that the HOLDING value is greater than zero
-        require(holdingValueInWei > 0, "HOLDING has no value");
+        // Ensure that the Holding value is greater than zero
+        require(holdingValueInWei > 0, "Holding has no value");
 
-        // Calculate the number of tokens to burn based on HOLDING value
+        // Calculate the number of tokens to burn based on Holding value
         uint256 tokensToBurn = computeTokenToBurnByWei(holdingValueInWei);
 
-        // Ensure that the HOLDING owner has enough tokens for the buyback
+        // Ensure that the Holding owner has enough tokens for the buyback
         require(
             balanceOf(msg.sender) >= tokensToBurn,
             "Insufficient tokens for buyback"
@@ -446,11 +446,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Burn the tokens
         _burn(msg.sender, tokensToBurn);
 
-        // Emit an event to log the HOLDING buyback
+        // Emit an event to log the Holding buyback
         emit HoldingBuyback(msg.sender, tokensToBurn, holdingValueInWei);
     }
 
-    // Function to calculate the value of minerals in the HOLDING
+    // Function to calculate the value of minerals in the Holding
     function calculateHoldingValueInWei(
         address holdingOwner
 
@@ -458,7 +458,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
         uint256 totalHoldingValue = 0;
 
-        // Calculate the value of each mineral in the HOLDING
+        // Calculate the value of each mineral in the Holding
         for (uint256 i = 0; i < newHoldingArray.length; i++) {
             if (newHoldingArray[i].owner==holdingOwner) {
                 totalHoldingValue += calculateMineralValueInWei(
@@ -471,7 +471,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return totalHoldingValue;
     }
 
-    // Function to calculate the number of tokens to burn based on HOLDING value
+    // Function to calculate the number of tokens to burn based on Holding value
     function computeTokenToBurnByWei(uint256 weiAmount)
     public
     view
@@ -501,7 +501,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return divide(totalAssetValue, totalSupply());
     }
 
-    // Event to log HOLDING release
+    // Event to log Holding release
     event HoldingBuyback(
         address indexed sender,
         uint256 tokensToBurn,
@@ -524,7 +524,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 mineralValue,
         uint256 tokensMinted,
         uint256 adminFee,
-        uint256 amountTransferredToHOLDINGOwner
+        uint256 amountTransferredToHoldingOwner
     );
 
 
