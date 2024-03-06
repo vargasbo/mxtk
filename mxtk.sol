@@ -48,7 +48,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     mapping(string=>uint) public MineralPrices;
     mapping(string=>address) public MineralPricesOracle;
-    uint256 internal initAssetValue;
 
     function initialize() initializer public {
         __ERC20_init("Mineral Token", "MXTK");
@@ -127,15 +126,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
 
-    struct newHoldings {
+    struct Holdings {
         address owner;
         string assetIpfsCID;
         string mineralSymbol;
         uint256 ounces;
-
     }
 
-    newHoldings[] public newHoldingArray;
+    Holdings[] public newHoldingArray;
     uint256 public newHoldingIndex;
 
     // Add this array to keep track of mineral symbols
@@ -188,28 +186,23 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         MineralPricesOracle[_min]=priceOracleAddress;
     }
 
-    ///A holding can have N number of minerals inside of it.
-    function addMineralToHolding(
+    // A holding can have N number of minerals inside of it.
+    function _addMineralToHolding(
         address holdingOwner,
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
-    ) external onlyOwner {
-        require(holdingOwner != address(0), "HOLDING not found");
-        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
-        require(mineralOunces > 0, "Oz must be greater than zero");
-        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
-
-        // Check if the mineral already exists for this HOLDING
+    ) internal {
+        // Check if the mineral already exists for this HOLDING or in originalMineralOunces
         require(
-            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]==0,
+            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
             "Mineral already exists"
         );
 
 
         newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
 
-        newHoldings memory tx1 = newHoldings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
+        Holdings memory tx1 = Holdings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
         newHoldingArray.push(tx1);
         newHoldingIndex++;
 
@@ -256,6 +249,21 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
             adminFeeInWei,
             amountToTransferToHoldingOwner
         );
+    }
+
+
+    function addMineralToHOLDING(
+        address holdingOwner,
+        string memory assetIpfsCID,
+        string memory mineralSymbol,
+        uint256 mineralOunces
+    ) external onlyOwner {
+        require(holdingOwner != address(0), "HOLDING not found");
+        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
+        require(mineralOunces > 0, "Oz must be greater than zero");
+        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
+
+        _addMineralToHolding(holdingOwner, assetIpfsCID, mineralSymbol, mineralOunces);
     }
 
     event TokenPriceUpdated(uint);
@@ -543,9 +551,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
         _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
 
-        initAssetValue = 1933745671142000000;
-        totalAssetValue = 1933745671142000000;
-
+        // Add initial minerals using the addMineralToHolding function
+        _addMineralToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "Qmb4am5G3yZKfQd3nBtuhWHmXTgzr6y6cV8dFwp3f9WTGn", "GR", 192000000000);
+        _addMineralToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "QmRohsANeKkPktGDmfWdpKuBmcCizEJS2TnXV6m1tBdYAQ", "AU", 71651);
 
         calledOnce = true;
     }
