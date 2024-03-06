@@ -71,9 +71,10 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 0;   //this is the only one using from chainLink
+        MineralPrices["AU"] = 191784750000000;  //this is the only one using from chainLink
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
+        MineralPrices["GR"] = 100000000;        //default value since porting over existing Holdings
         mineralSymbols.push("BA");
         MineralPricesOracle["BA"] = address(0);
         mineralSymbols.push("CH");
@@ -251,7 +252,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         );
     }
 
-
     function addMineralToHolding(
         address holdingOwner,
         string memory assetIpfsCID,
@@ -319,7 +319,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
 
     // Function to add a mineral symbol to the array
-    function addMineralSymbol(string memory mineralSymbol) public onlyOwner{
+    function addMineralSymbol(string memory mineralSymbol) external onlyOwner{
         _addMineralSymbol(mineralSymbol);
     }
 
