@@ -188,10 +188,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         MineralPricesOracle[_min]=priceOracleAddress;
     }
 
-
-
     ///A holding can have N number of minerals inside of it.
-    function addMineralToHOLDING(
+    function addMineralToHolding(
         address holdingOwner,
         string memory assetIpfsCID,
         string memory mineralSymbol,
@@ -201,8 +199,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
         require(mineralOunces > 0, "Oz must be greater than zero");
         require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
-
-
 
         // Check if the mineral already exists for this HOLDING
         require(
