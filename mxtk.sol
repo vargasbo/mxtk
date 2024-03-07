@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "hardhat/console.sol";
 
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -605,8 +604,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 originalEthPrice = 159089461098; // Original ETH price for 9/23/23 when published
         uint256 currentEthPrice = getETHPrice(); // Current ETH price
         require(originalEthPrice > 0 && currentEthPrice > 0, "Invalid ETH price");
-
-        //uint256 priceDifference = currentEthPrice / originalEthPrice; // Difference as a factor
 
         _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696 * currentEthPrice / originalEthPrice); //1
         _mint(0xb36C15f1ED5cedb9E913218219016d8Cf5Ac864F,4255602869571497331219493 * currentEthPrice / originalEthPrice); //2
