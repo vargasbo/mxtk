@@ -46,9 +46,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     AggregatorV3Interface internal tanzanitePriceFeed;
     AggregatorV3Interface internal tungstenPriceFeed;
 
-    mapping(string=>uint) public MineralPrices;
-    mapping(string=>address) public MineralPricesOracle;
-    uint256 internal initAssetValue;
+    mapping(string=>uint) internal MineralPrices;
+    mapping(string=>address) internal MineralPricesOracle;
 
     function initialize() initializer public {
         __ERC20_init("Mineral Token", "MXTK");
@@ -60,21 +59,26 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
         ethPriceFeed = AggregatorV3Interface(
-            0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e
-        //0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
+        //0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e //testNet
+            0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
         ); //ETH/USD address
         auPriceFeed = AggregatorV3Interface(
-            0x7b219F57a8e9C7303204Af681e9fA69d17ef626f
-        //0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
+        //0x7b219F57a8e9C7303204Af681e9fA69d17ef626f //testnet
+            0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
         ); //XAU/USD address
 
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
+        MineralPrices["CU"] = 10000; //default value for copper over from existing holdings
+
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 0;   //this is the only one using from chainLink
+        MineralPrices["AU"] = 10000;  //this is the only one using from chainLink
+
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
+        MineralPrices["GR"] = 10000;  //default value since porting over existing Holdings
+
         mineralSymbols.push("BA");
         MineralPricesOracle["BA"] = address(0);
         mineralSymbols.push("CH");
@@ -116,6 +120,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         mineralSymbols.push("TG");
         MineralPricesOracle["TG"] = address(0);
 
+        totalAssetValue = 0;
+
         setInitialValues();
 
     }
@@ -127,16 +133,15 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
 
-    struct newHOLDINGs {
+    struct Holdings {
         address owner;
         string assetIpfsCID;
         string mineralSymbol;
         uint256 ounces;
-
     }
 
-    newHOLDINGs[] public newHoldingArray;
-    uint256 public newHOLDINGsIndex;
+    Holdings[] internal newHoldingArray;
+    uint256 internal newHoldingIndex;
 
     // Add this array to keep track of mineral symbols
     string[] public mineralSymbols;
@@ -182,41 +187,72 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         auPriceFeed = AggregatorV3Interface(goldOracleAddress);
     }
 
-    function updateMineralPriceOracle(string memory _min,address priceOracleAddress)
+    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress)
     public
     {
-
-        MineralPricesOracle[_min]=priceOracleAddress;
+        MineralPricesOracle[mineralSymbol]=priceOracleAddress;
     }
 
+    // A holding can have N number of minerals inside of it.
+    function existingDataToHolding(
+        address holdingOwner,
+        string memory assetIpfsCID,
+        string memory mineralSymbol,
+        uint256 mineralOunces
+    ) internal onlyOwner{
+        require(holdingOwner != address(0), "Holding not found");
+        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
+        require(mineralOunces > 0, "Oz must be greater than zero");
+        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
+
+        // Check if the mineral already exists for this Holding or in originalMineralOunces
+        require(
+            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
+            "Mineral already exists"
+        );
 
 
-    ///A holding can have N number of minerals inside of it.
-    function addMineralToHOLDING(
+        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] = mineralOunces;
+
+        Holdings memory tx1 = Holdings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
+        newHoldingArray.push(tx1);
+        newHoldingIndex++;
+
+
+        // Calculation logic
+        uint256 mineralValueInWei = calculateMineralValueInWei(
+            mineralSymbol,
+            mineralOunces
+        );
+
+        // Update totalAssetValue
+        totalAssetValue += mineralValueInWei;
+        updateAndComputeTokenPrice();
+    }
+
+    function addMineralToHolding(
         address holdingOwner,
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
     ) external onlyOwner {
-        require(holdingOwner != address(0), "HOLDING not found");
+        require(holdingOwner != address(0), "Holding not found");
         require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
         require(mineralOunces > 0, "Oz must be greater than zero");
         require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
 
-
-
-        // Check if the mineral already exists for this HOLDING
+        // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
-            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]==0,
+            newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
             "Mineral already exists"
         );
 
 
-        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol]=mineralOunces;
+        newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] = mineralOunces;
 
-        newHOLDINGs memory tx1 = newHOLDINGs(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
+        Holdings memory tx1 = Holdings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
         newHoldingArray.push(tx1);
-        newHOLDINGsIndex++;
+        newHoldingIndex++;
 
 
         // Calculation logic
@@ -231,24 +267,24 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Calculate admin fee
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
 
-        // Calculate amount to transfer to HOLDING owner in Wei
-        uint256 amountToTransferToHOLDINGOwner = tokensToMintInWei - adminFeeInWei;
+        // Calculate amount to transfer to Holding owner in Wei
+        uint256 amountToTransferToHoldingOwner = tokensToMintInWei - adminFeeInWei;
 
         // Ensure that the amount to mint is greater than zero
         require(tokensToMintInWei > 0, "Tokens to mint > zero");
-        require(amountToTransferToHOLDINGOwner > 0, "Owner mint NOT > 0");
+        require(amountToTransferToHoldingOwner > 0, "Owner mint NOT > 0");
         require(adminFeeInWei > 0, "Admin fee NOT > 0");
 
         // Update totalAssetValue
         totalAssetValue += mineralValueInWei;
 
-        // Mint tokens directly to the HOLDING owner's wallet
-        _mint(holdingOwner, amountToTransferToHOLDINGOwner);
+        // Mint tokens directly to the Holding owner's wallet
+        _mint(holdingOwner, amountToTransferToHoldingOwner);
 
         // Mint admin fee directly to the contract owner's wallet
         _mint(owner(), adminFeeInWei);
 
-        addMineralSymbol(mineralSymbol);
+        _addMineralSymbol(mineralSymbol);
 
         updateAndComputeTokenPrice();
         // Events, etc...
@@ -259,7 +295,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
             mineralValueInWei,
             tokensToMintInWei,
             adminFeeInWei,
-            amountToTransferToHOLDINGOwner
+            amountToTransferToHoldingOwner
         );
     }
 
@@ -284,7 +320,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
             totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
         }
 
-        return totalValue+ initAssetValue;
+        return totalValue;
     }
 
     // Function to compute the new token price based on total asset value
@@ -296,8 +332,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return totalAssetValue / totalSupply();
     }
 
-    // Function to add a mineral symbol to the array
-    function addMineralSymbol(string memory mineralSymbol) public {
+    function _addMineralSymbol(string memory mineralSymbol) internal {
 
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
@@ -313,6 +348,12 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         if (!symbolExists) {
             mineralSymbols.push(mineralSymbol);
         }
+    }
+
+
+    // Function to add a mineral symbol to the array
+    function addMineralSymbol(string memory mineralSymbol) external onlyOwner{
+        _addMineralSymbol(mineralSymbol);
     }
 
     function computeTokenToMintByWei(uint256 weiAmount)
@@ -352,13 +393,20 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
-        return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
+        return uint256(getMineralPrice(mineralSymbol)) * mineralOunces;
     }
 
-    function getMineralPrice(string memory _min) public view returns (int256) {
-        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[_min]);
-        (, int256 price, , , ) = tx1.latestRoundData();
-        return price;
+    function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
+        //Gold is using the existing Price Oracle; call that vs internal
+        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
+            return uint256(getGoldPrice());
+        } else{
+            int256 price = 0;
+            AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
+            (, price, , , ) = tx1.latestRoundData();
+
+            return uint256(price);
+        }
     }
 
     function getETHPrice() public view returns (uint256) {
@@ -417,45 +465,56 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return true;
     }
 
-    // Function to allow the HOLDING owner to "buy back" their HOLDING
-    function buyBackHolding(
-    //string memory assetIpfsCID
-    ) external {
-        // Ensure that the sender is the HOLDING owner
-
-        // Calculate the current value of the minerals in the HOLDING
-        uint256 holdingValueInWei = calculateHOLDINGValueInWei(
-            msg.sender
+    // Function to allow the Holding owner to "buy back" their Holding
+    function buyBackHolding(address holdingOwner) external onlyOwner{
+        // Calculate the current value of the minerals in the Holding
+        uint256 holdingValueInWei = calculateHoldingValueInWei(
+            holdingOwner
         );
 
-        // Ensure that the HOLDING value is greater than zero
-        require(holdingValueInWei > 0, "HOLDING has no value");
+        // Ensure that the Holding value is greater than zero
+        require(holdingValueInWei > 0, "Holding has no value");
 
-        // Calculate the number of tokens to burn based on HOLDING value
+        // Calculate the number of tokens to burn based on Holding value
         uint256 tokensToBurn = computeTokenToBurnByWei(holdingValueInWei);
 
-        // Ensure that the HOLDING owner has enough tokens for the buyback
+        // Ensure that the Holding owner has enough tokens for the buyback
         require(
-            balanceOf(msg.sender) >= tokensToBurn,
+            balanceOf(holdingOwner) >= tokensToBurn,
             "Insufficient tokens for buyback"
         );
 
         // Burn the tokens
-        _burn(msg.sender, tokensToBurn);
+        _burn(holdingOwner, tokensToBurn);
 
-        // Emit an event to log the HOLDING buyback
-        emit HoldingBuyback(msg.sender, tokensToBurn, holdingValueInWei);
+        // Remove the holding from the owner
+        removeHoldingFromOwner(holdingOwner);
+
+        // Emit an event to log the Holding buyback
+        emit HoldingBuyback(holdingOwner, tokensToBurn, holdingValueInWei);
     }
 
-    // Function to calculate the value of minerals in the HOLDING
-    function calculateHOLDINGValueInWei(
-        address holdingOwner
+    // Function to remove the holding from the owner
+    function removeHoldingFromOwner(address holdingOwner) internal {
+        for (uint256 i = 0; i < newHoldingArray.length; i++) {
+            if (newHoldingArray[i].owner == holdingOwner) {
+                // Remove the holding by swapping with the last element and then reducing the array length
+                newHoldingArray[i] = newHoldingArray[newHoldingArray.length - 1];
+                delete newHoldingArray[newHoldingArray.length - 1];
+                newHoldingArray.pop();
+                break;
+            }
+        }
+    }
 
+    // Function to calculate the value of minerals in the Holding
+    function calculateHoldingValueInWei(
+        address holdingOwner
     ) public view returns (uint256) {
 
         uint256 totalHoldingValue = 0;
 
-        // Calculate the value of each mineral in the HOLDING
+        // Calculate the value of each mineral in the Holding
         for (uint256 i = 0; i < newHoldingArray.length; i++) {
             if (newHoldingArray[i].owner==holdingOwner) {
                 totalHoldingValue += calculateMineralValueInWei(
@@ -468,7 +527,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return totalHoldingValue;
     }
 
-    // Function to calculate the number of tokens to burn based on HOLDING value
+    // Function to calculate the number of tokens to burn based on Holding value
     function computeTokenToBurnByWei(uint256 weiAmount)
     public
     view
@@ -498,7 +557,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return divide(totalAssetValue, totalSupply());
     }
 
-    // Event to log HOLDING release
+    // Event to log Holding release
     event HoldingBuyback(
         address indexed sender,
         uint256 tokensToBurn,
@@ -521,7 +580,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 mineralValue,
         uint256 tokensMinted,
         uint256 adminFee,
-        uint256 amountTransferredToHOLDINGOwner
+        uint256 amountTransferredToHoldingOwner
     );
 
 
@@ -529,7 +588,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
 
-    bool public calledOnce;
+    bool internal calledOnce;
 
     function setInitialValues() internal {
         require(!calledOnce,"already called");
@@ -548,12 +607,16 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
         _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
 
-        initAssetValue = 1933745671142000000;
-        totalAssetValue = 1933745671142000000;
-
-
         calledOnce = true;
     }
+
+    //To be called after the proxy has been deployed
+    function portExistingMinerals() external onlyOwner{
+        // Add initial minerals using the addMineralToHolding function
+        existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "Qmb4am5G3yZKfQd3nBtuhWHmXTgzr6y6cV8dFwp3f9WTGn", "GR", 192000000000);
+        existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "QmRohsANeKkPktGDmfWdpKuBmcCizEJS2TnXV6m1tBdYAQ", "AU", 71651);
+    }
+
 }
 
 //Used to publish event changes from Price Oracle
@@ -562,8 +625,8 @@ contract PriceEventEmitter {
     }
     event eventEmitted(string,int);
 
-    function emitEvent(string memory _str,int _int) public {
-        emit eventEmitted(_str,_int);
+    function emitEvent(string memory symbol,int price) public {
+        emit eventEmitted(symbol, price);
     }
 }
 
@@ -642,11 +705,11 @@ contract PriceOracle is AggregatorV3Interface {
         answeredInRound = _roundId;
     }
 
-    function change_price(int _num) public onlyAdmin {
-        _price = _num;
+    function change_price(int _newPrice) public onlyAdmin {
+        _price = _newPrice;
         main.updateAndComputeTokenPrice();
         _updatedAt = block.timestamp;
-        emitter.emitEvent(symbol,_num);
+        emitter.emitEvent(symbol,_newPrice);
     }
 
     function latestRoundData()
