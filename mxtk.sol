@@ -187,9 +187,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         auPriceFeed = AggregatorV3Interface(goldOracleAddress);
     }
 
-    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress)
-    public
-    {
+    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress) public {
+        require(msg.sender == owner(), "Only the contract owner can update the mineral price oracle");
         MineralPricesOracle[mineralSymbol]=priceOracleAddress;
     }
 
@@ -637,12 +636,12 @@ contract PriceOracle is AggregatorV3Interface {
     string public symbol;
     address public admin;
     MXTK public main;
-    int public _price;
-    uint public _version = 1;
+    int internal _price;
+    uint internal _version = 1;
     PriceEventEmitter public emitter;
-    uint public _startedAt;
-    uint public _updatedAt;
-    uint8 public _decimals = 8;
+    uint internal  _startedAt;
+    uint internal _updatedAt;
+    uint8 internal _decimals = 8;
 
 
     constructor(string memory _name,string memory _symbol,address _mxtk,address _priceEventEmitter,int initialPrice){
@@ -662,8 +661,8 @@ contract PriceOracle is AggregatorV3Interface {
         _;
     }
 
-    function changeAdmin(address _new) public onlyAdmin{
-        admin = _new;
+    function changeAdmin(address newAdmin) public onlyAdmin{
+        admin = newAdmin;
     }
 
     function decimals()
@@ -705,11 +704,11 @@ contract PriceOracle is AggregatorV3Interface {
         answeredInRound = _roundId;
     }
 
-    function change_price(int _newPrice) public onlyAdmin {
-        _price = _newPrice;
+    function changePrice(int newPrice) public onlyAdmin {
+        _price = newPrice;
         main.updateAndComputeTokenPrice();
         _updatedAt = block.timestamp;
-        emitter.emitEvent(symbol,_newPrice);
+        emitter.emitEvent(symbol, newPrice);
     }
 
     function latestRoundData()
