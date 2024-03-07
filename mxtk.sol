@@ -12,6 +12,7 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -630,7 +631,7 @@ contract PriceEventEmitter {
 }
 
 //Create different Price Oracles instances for all minerals supported
-contract PriceOracle is AggregatorV3Interface {
+contract PriceOracle is AggregatorV3Interface, Ownable {
 
     string public name;
     string public symbol;
@@ -643,11 +644,17 @@ contract PriceOracle is AggregatorV3Interface {
     uint internal _updatedAt;
     uint8 internal _decimals = 8;
 
-
-    constructor(string memory _name,string memory _symbol,address _mxtk,address _priceEventEmitter,int initialPrice){
+    constructor(
+        address initialOwner, // Address of the initial owner
+        string memory _name,
+        string memory _symbol,
+        address _mxtk,
+        address _priceEventEmitter,
+        int initialPrice
+    ) Ownable(initialOwner) {
         name = _name;
         symbol = _symbol;
-        admin = msg.sender;
+        admin = msg.sender; // Set initial admin to the contract deployer
         main = MXTK(_mxtk);
         main.updateMineralPriceOracle(_symbol, address(this));
         _price = initialPrice;
@@ -704,7 +711,7 @@ contract PriceOracle is AggregatorV3Interface {
         answeredInRound = _roundId;
     }
 
-    function changePrice(int newPrice) public onlyAdmin {
+    function changePrice(int newPrice) public onlyOwner {
         _price = newPrice;
         main.updateAndComputeTokenPrice();
         _updatedAt = block.timestamp;
@@ -728,4 +735,5 @@ contract PriceOracle is AggregatorV3Interface {
         answeredInRound = 0;
 
     }
+
 }
