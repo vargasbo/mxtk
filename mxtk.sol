@@ -199,7 +199,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
-    ) public payable onlyOwner{
+    ) internal onlyOwner{
         require(holdingOwner != address(0), "Holding not found");
         require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
         require(mineralOunces > 0, "Oz must be greater than zero");
