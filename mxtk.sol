@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -188,8 +189,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         auPriceFeed = AggregatorV3Interface(goldOracleAddress);
     }
 
-    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress) public {
-        require(msg.sender == owner(), "Only the contract owner can update the mineral price oracle");
+
+    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress, address msgSender) public {
+        require(msgSender == owner(), "Only the contract owner can update the mineral price oracle");
         MineralPricesOracle[mineralSymbol]=priceOracleAddress;
     }
 
@@ -654,9 +656,9 @@ contract PriceOracle is AggregatorV3Interface, Ownable {
     ) Ownable(initialOwner) {
         name = _name;
         symbol = _symbol;
-        admin = msg.sender; // Set initial admin to the contract deployer
+        admin = initialOwner; // Set initial admin to the contract deployer
         main = MXTK(_mxtk);
-        main.updateMineralPriceOracle(_symbol, address(this));
+        main.updateMineralPriceOracle(_symbol, address(this), initialOwner);
         _price = initialPrice;
         emitter = PriceEventEmitter(_priceEventEmitter);
         _startedAt = block.timestamp;
