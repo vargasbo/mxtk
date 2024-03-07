@@ -46,8 +46,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     AggregatorV3Interface internal tanzanitePriceFeed;
     AggregatorV3Interface internal tungstenPriceFeed;
 
-    mapping(string=>uint) public MineralPrices;
-    mapping(string=>address) public MineralPricesOracle;
+    mapping(string=>uint) internal MineralPrices;
+    mapping(string=>address) internal MineralPricesOracle;
 
     function initialize() initializer public {
         __ERC20_init("Mineral Token", "MXTK");
@@ -140,8 +140,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 ounces;
     }
 
-    Holdings[] public newHoldingArray;
-    uint256 public newHoldingIndex;
+    Holdings[] internal newHoldingArray;
+    uint256 internal newHoldingIndex;
 
     // Add this array to keep track of mineral symbols
     string[] public mineralSymbols;
@@ -199,7 +199,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory assetIpfsCID,
         string memory mineralSymbol,
         uint256 mineralOunces
-    ) internal {
+    ) public payable onlyOwner{
         // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
             newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
