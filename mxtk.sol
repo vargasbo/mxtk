@@ -399,16 +399,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
         //Gold is using the existing Price Oracle; call that vs internal
         if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
+            return uint256(getGoldPrice());
+        } else{
+            int256 price = 0;
             AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
-            (, int256 price, , , ) = tx1.latestRoundData();
-
-            require(price > 0, "Price feed error");
+            (, price, , , ) = tx1.latestRoundData();
 
             return uint256(price);
-        } else{
-            return uint256(getGoldPrice());
         }
-
     }
 
     function getETHPrice() public view returns (uint256) {
