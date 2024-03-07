@@ -200,6 +200,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public payable onlyOwner{
+        require(holdingOwner != address(0), "Holding not found");
+        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
+        require(mineralOunces > 0, "Oz must be greater than zero");
+        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
+
         // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
             newHoldings[holdingOwner][assetIpfsCID][mineralSymbol] == 0,
@@ -388,7 +393,16 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
-        return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
+        //Gold is using the existing Price Oracle; call that vs internal
+        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
+            // Call getGoldPrice function if the mineral symbol is "AU" (gold)
+            uint256 goldPrice = getGoldPrice();
+            // Calculate the value of gold in Wei
+            return goldPrice * mineralOunces;
+        }
+        else{
+            return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
+        }
     }
 
     function getMineralPrice(string memory mineralSymbol) public view returns (int256) {
@@ -576,7 +590,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
 
-    bool public calledOnce;
+    bool internal calledOnce;
 
     function setInitialValues() internal {
         require(!calledOnce,"already called");
