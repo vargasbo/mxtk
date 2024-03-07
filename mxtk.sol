@@ -393,22 +393,22 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         string memory mineralSymbol,
         uint256 mineralOunces
     ) public view returns (uint256) {
-        //Gold is using the existing Price Oracle; call that vs internal
-        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
-            // Call getGoldPrice function if the mineral symbol is "AU" (gold)
-            uint256 goldPrice = getGoldPrice();
-            // Calculate the value of gold in Wei
-            return goldPrice * mineralOunces;
-        }
-        else{
-            return uint(getMineralPrice(mineralSymbol)) * mineralOunces;
-        }
+        return uint256(getMineralPrice(mineralSymbol)) * mineralOunces;
     }
 
-    function getMineralPrice(string memory mineralSymbol) public view returns (int256) {
-        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
-        (, int256 price, , , ) = tx1.latestRoundData();
-        return price;
+    function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
+        //Gold is using the existing Price Oracle; call that vs internal
+        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
+            AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
+            (, int256 price, , , ) = tx1.latestRoundData();
+
+            require(price > 0, "Price feed error");
+
+            return uint256(price);
+        } else{
+            return uint256(getGoldPrice());
+        }
+
     }
 
     function getETHPrice() public view returns (uint256) {
