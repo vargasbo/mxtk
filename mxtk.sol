@@ -294,7 +294,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         // Update the prices of underlying assets
         // Recalculate the total asset value and token price
         totalAssetValue = calculateTotalAssetValue();
-        uint256 newTokenPrice = computeTokenPrice();
+        uint256 newTokenPrice = getTokenValue();
 
         // Emit an event or log the updated token price
         emit TokenPriceUpdated(newTokenPrice);
@@ -309,15 +309,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         }
 
         return totalValue;
-    }
-
-    // Function to compute the new token price based on total asset value
-    function computeTokenPrice() internal view returns (uint256) {
-        // Ensure that totalSupply() is greater than zero to avoid division by zero
-        require(totalSupply() > 0, "Total supply must be greater than zero");
-
-        // Calculate the new token price based on total asset value and total supply
-        return (totalAssetValue / 1e18) / (totalSupply() / 1e18);
     }
 
     function _addMineralSymbol(string memory mineralSymbol) internal {
@@ -540,7 +531,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         if (totalSupply() == 0) {
             return 0; // Avoid division by zero if totalSupply is zero
         }
-        return (totalAssetValue / 1e18) / (totalSupply() / 1e18);
+        return (totalAssetValue * 1e18) / totalSupply();
     }
 
     // Event to log Holding release
