@@ -22,7 +22,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         _disableInitializers();
     }
 
-    AggregatorV3Interface internal ethPriceFeed; // Chainlink ETH/USD Price Feed contract
     AggregatorV3Interface internal auPriceFeed; // Chainlink Gold Price Feed contract
     AggregatorV3Interface internal bauxitePriceFeed;
     AggregatorV3Interface internal chromiumPriceFeed;
@@ -59,10 +58,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         __UUPSUpgradeable_init();
 
         gasFeePercentage = 70; // Default to 70 bps (0.7%)
-        ethPriceFeed = AggregatorV3Interface(
-        //0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e //testNet
-            0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419  //mainNet
-        ); //ETH/USD address
         auPriceFeed = AggregatorV3Interface(
         //0x7b219F57a8e9C7303204Af681e9fA69d17ef626f //testnet
             0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
@@ -172,13 +167,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
 
     event MineralPriceUpdated(string,uint);
-
-
-
-    function updateETHPriceOracle(address ethOracleAddress) external onlyOwner {
-        require(ethOracleAddress != address(0), "Invalid address");
-        ethPriceFeed = AggregatorV3Interface(ethOracleAddress);
-    }
 
     function updateGoldPriceOracle(address goldOracleAddress)
     external
@@ -330,7 +318,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(totalSupply() > 0, "Total supply must be greater than zero");
 
         // Calculate the new token price based on total asset value and total supply
-        return totalAssetValue / totalSupply();
+        return divide(totalAssetValue,totalSupply());
     }
 
     function _addMineralSymbol(string memory mineralSymbol) internal {
@@ -357,19 +345,18 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         _addMineralSymbol(mineralSymbol);
     }
 
+
     function computeTokenToMintByWei(uint256 weiAmount)
     public
-    view
+    pure
     returns (uint256)
     {
         require(weiAmount > 0, "Value must > zero");
 
-        uint256 price = getETHPrice();
-
-        require(price > 0, "ETH must > zero");
+        uint256 baseDeno = baseValue();
 
         // Calculate token to mint
-        uint256 tokensToMintInWei = divide(weiAmount, price);
+        uint256 tokensToMintInWei = divide(weiAmount, baseDeno);
 
         return tokensToMintInWei;
     }
@@ -409,14 +396,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
             return uint256(price);
         }
-    }
-
-    function getETHPrice() public view returns (uint256) {
-        // Get the latest ETH/USD price from ChainLink in 8 decimal position
-        (, int256 price, , , ) = ethPriceFeed.latestRoundData();
-        require(price > 0, "Price feed error");
-
-        return uint256(price);
     }
 
     function getGoldPrice() public view returns (uint256) {
@@ -591,35 +570,32 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 amountTransferredToHoldingOwner
     );
 
-
-
     // Declare the event at the contract level
     event DebugLog(string message, uint256 value);
 
     bool internal calledOnce;
 
+    function baseValue() public pure returns (uint256) {
+        return 159089461098;
+    }
+
     function setInitialValues() internal {
         require(!calledOnce,"already called");
 
-        // Calculate the difference in ETH price between original and current
-        uint256 originalEthPrice = 159089461098; // Original ETH price for 9/23/23 when published
-        uint256 currentEthPrice = getETHPrice(); // Current ETH price
-        require(originalEthPrice > 0 && currentEthPrice > 0, "Invalid ETH price");
+        _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696); //1
+        _mint(0xb36C15f1ED5cedb9E913218219016d8Cf5Ac864F,4255602869571497331219493); //2
+        _mint(0x121B039CBc60aA1bf563306eB24013D0e1bA0989,2672762772000000000000000); //3
+        _mint(0xB3f46cC55a50225f197AE5a4d1545350f48B2F0b,624477244200000000000000);  //4
 
-        _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696 * currentEthPrice / originalEthPrice); //1
-        _mint(0xb36C15f1ED5cedb9E913218219016d8Cf5Ac864F,4255602869571497331219493 * currentEthPrice / originalEthPrice); //2
-        _mint(0x121B039CBc60aA1bf563306eB24013D0e1bA0989,2672762772000000000000000 * currentEthPrice / originalEthPrice); //3
-        _mint(0xB3f46cC55a50225f197AE5a4d1545350f48B2F0b,624477244200000000000000 * currentEthPrice / originalEthPrice);  //4
-
-        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000 * currentEthPrice / originalEthPrice); //5
-        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000 * currentEthPrice / originalEthPrice); //6
-        _mint(0x4bD9Ea8D612aD197de3d3180db0A60bC7Cbc3189,198600000000000000000 * currentEthPrice / originalEthPrice); //7
-        _mint(0xB9aD5fd45F3A36Be70E2fD2F661060ddc1D0fc09,198600000000000000000 * currentEthPrice / originalEthPrice); //8
-        _mint(0xd79497C683BD0eA45DaFc8b732cBf7344F5Df231,3152775000000000000 * currentEthPrice / originalEthPrice); //9
-        _mint(0xE1a0508BB886C110f2238C0232795c30d99C71D7,93448174827476894 * currentEthPrice / originalEthPrice);  //10
-        _mint(0xDf0a2F8E8c5a78D1E501382060C803750C5E5821,30783000000000000 * currentEthPrice / originalEthPrice);  //11
-        _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000 * currentEthPrice / originalEthPrice);  //12
-        _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742 * currentEthPrice / originalEthPrice);  //13
+        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000); //5
+        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000); //6
+        _mint(0x4bD9Ea8D612aD197de3d3180db0A60bC7Cbc3189,198600000000000000000); //7
+        _mint(0xB9aD5fd45F3A36Be70E2fD2F661060ddc1D0fc09,198600000000000000000); //8
+        _mint(0xd79497C683BD0eA45DaFc8b732cBf7344F5Df231,3152775000000000000); //9
+        _mint(0xE1a0508BB886C110f2238C0232795c30d99C71D7,93448174827476894);  //10
+        _mint(0xDf0a2F8E8c5a78D1E501382060C803750C5E5821,30783000000000000);  //11
+        _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
+        _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
 
         calledOnce = true;
     }
