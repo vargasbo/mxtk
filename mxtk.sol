@@ -12,7 +12,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
@@ -318,7 +317,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(totalSupply() > 0, "Total supply must be greater than zero");
 
         // Calculate the new token price based on total asset value and total supply
-        return totalAssetValue / (totalSupply() / 1e18);
+        return (totalAssetValue * 1e18) / totalSupply();
     }
 
     function _addMineralSymbol(string memory mineralSymbol) internal {
@@ -541,7 +540,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         if (totalSupply() == 0) {
             return 0; // Avoid division by zero if totalSupply is zero
         }
-        return totalAssetValue / (totalSupply() / 1e18);
+        return (totalAssetValue * 1e18) / totalSupply();
     }
 
     // Event to log Holding release
