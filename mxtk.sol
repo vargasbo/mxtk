@@ -317,7 +317,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(totalSupply() > 0, "Total supply must be greater than zero");
 
         // Calculate the new token price based on total asset value and total supply
-        return (totalAssetValue * 1e18) / totalSupply();
+        return (totalAssetValue / 1e18) / (totalSupply() / 1e18);
     }
 
     function _addMineralSymbol(string memory mineralSymbol) internal {
@@ -540,7 +540,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         if (totalSupply() == 0) {
             return 0; // Avoid division by zero if totalSupply is zero
         }
-        return (totalAssetValue * 1e18) / totalSupply();
+        return (totalAssetValue / 1e18) / (totalSupply() / 1e18);
     }
 
     // Event to log Holding release
