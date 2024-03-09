@@ -372,7 +372,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 mineralOunces
     ) public view returns (uint256) {
         uint256 mineralPrice = getMineralPrice(mineralSymbol);
-        return mineralPrice * mineralOunces * 10**10;
+        return divide(mineralPrice * mineralOunces, 10**8);
     }
 
     function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
@@ -566,7 +566,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     bool internal calledOnce;
 
     function baseValue() public pure returns (uint256) {
-        return 159089461098;
+        return 159089461098 * (10**18);
     }
 
     function setInitialValues() internal {
