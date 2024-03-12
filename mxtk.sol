@@ -250,7 +250,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         );
 
         // Calculate tokens to mint
-        uint256 tokensToMintInWei = computeTokenToMintByWei(mineralValueInWei);
+        uint256 tokensToMintInWei = computeTokenByWei(mineralValueInWei);
 
         // Calculate admin fee
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
@@ -336,19 +336,25 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
 
-    function computeTokenToMintByWei(uint256 weiAmount)
+    // Function to calculate the number of tokens to burn based on Holding value
+    function computeTokenByWei(uint256 weiAmount)
     public
-    pure
+    view
     returns (uint256)
     {
         require(weiAmount > 0, "Value must > zero");
 
-        uint256 baseDeno = baseValue();
+        uint256 price = getTokenValue();
 
-        // Calculate token to mint
-        uint256 tokensToMintInWei = divide(weiAmount, baseDeno);
+        //When porting data the first time; we'll have a value of zero. We'll use
+        // the orignal value when minting tokens
+        if(price == 0)
+            price = baseValue();
 
-        return tokensToMintInWei;
+        // Calculate tokens to burn
+        uint256 tokens = divide(weiAmount, price);
+
+        return tokens;
     }
 
     function divide(uint256 a, uint256 b) public pure returns (uint256) {
@@ -447,7 +453,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(holdingValueInWei > 0, "Holding has no value");
 
         // Calculate the number of tokens to burn based on Holding value
-        uint256 tokensToBurn = computeTokenToBurnByWei(holdingValueInWei);
+        uint256 tokensToBurn = computeTokenByWei(holdingValueInWei);
 
         // Ensure that the Holding owner has enough tokens for the buyback
         require(
@@ -502,24 +508,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         }
 
         return totalHoldingValue;
-    }
-
-    // Function to calculate the number of tokens to burn based on Holding value
-    function computeTokenToBurnByWei(uint256 weiAmount)
-    public
-    view
-    returns (uint256)
-    {
-        require(weiAmount > 0, "Value must > zero");
-
-        uint256 price = getTokenValue();
-
-        require(price > 0, "Token value must be > zero");
-
-        // Calculate tokens to burn
-        uint256 tokensToBurn = divide(weiAmount, price);
-
-        return tokensToBurn;
     }
 
     // Function to update the gas fee percentage
