@@ -12,9 +12,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
-OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
+OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -56,7 +57,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
-        gasFeePercentage = 70; // Default to 70 bps (0.7%)
+        gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
         auPriceFeed = AggregatorV3Interface(
         //0x7b219F57a8e9C7303204Af681e9fA69d17ef626f //testnet
             0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
@@ -123,8 +124,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
 
 
-    // Gas fee percentage
-    uint256 public gasFeePercentage;
+    // Gas fee percentage in basis points (bps)
+    uint256 public gasFeePercentageBps;
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
 
@@ -189,9 +190,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 mineralOunces
     ) internal onlyOwner{
         require(holdingOwner != address(0), "Holding not found");
-        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
-        require(mineralOunces > 0, "Oz must be greater than zero");
-        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
+        require(bytes(assetIpfsCID).length > 0 && bytes(assetIpfsCID).length <= 64, "Invalid IPFS CID");
+        require(mineralOunces > 0 && mineralOunces <= 1e18, "Invalid mineral ounces");
+        require(bytes(mineralSymbol).length > 0 && bytes(mineralSymbol).length < 6, "Symbol cannot be empty or > 6");
 
         // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
@@ -225,9 +226,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         uint256 mineralOunces
     ) external onlyOwner {
         require(holdingOwner != address(0), "Holding not found");
-        require(bytes(assetIpfsCID).length > 0, "CID cannot be empty");
-        require(mineralOunces > 0, "Oz must be greater than zero");
-        require(bytes(mineralSymbol).length > 0, "Symbol cannot be empty");
+        require(bytes(assetIpfsCID).length > 0 && bytes(assetIpfsCID).length <= 64, "Invalid IPFS CID");
+        require(mineralOunces > 0 && mineralOunces <= 1e18, "Invalid mineral ounces");
+        require(bytes(mineralSymbol).length > 0 && bytes(mineralSymbol).length < 6, "Symbol cannot be empty or > 6");
 
         // Check if the mineral already exists for this Holding or in originalMineralOunces
         require(
@@ -254,6 +255,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
         // Calculate admin fee
         uint256 adminFeeInWei = calculateAdminFee(tokensToMintInWei);
+
+        require(adminFeeInWei <= tokensToMintInWei, "Admin fee exceeds tokens to mint");
 
         // Calculate amount to transfer to Holding owner in Wei
         uint256 amountToTransferToHoldingOwner = tokensToMintInWei - adminFeeInWei;
@@ -425,7 +428,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
 
         // Calculate gas fee based on amount - gasFee
         // This avoids double charging fee on the fee
-        uint256 gasFee = (amount * gasFeePercentage) / 10_000;
+        uint256 gasFee = (amount * gasFeePercentageBps) / 10_000;
 
         // Check balance is sufficient before any transfer
         require(balanceBefore >= amount, "Insufficient balance");
@@ -434,16 +437,15 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         require(gasFee < amount, "Gas fee exceeds amount");
 
         // Transfer tokens minus gas fee
-        super.transfer(to, amount - gasFee);
+        require(super.transfer(to, amount - gasFee), "Transfer failed");
 
         // Transfer gas fee to owner
-        super.transfer(owner(), gasFee);
-
+        require(super.transfer(owner(), gasFee), "Gas fee transfer failed");
         return true;
     }
 
     // Function to allow the Holding owner to "buy back" their Holding
-    function buyBackHolding(address holdingOwner,string memory ipfsCID) external onlyOwner{
+    function buyBackHolding(address holdingOwner,string memory ipfsCID) external onlyOwner nonReentrant{
         // Calculate the current value of the minerals in the Holding
         uint256 holdingValueInWei = calculateHoldingValueInWei(
             holdingOwner, ipfsCID
@@ -511,9 +513,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
     }
 
     // Function to update the gas fee percentage
-    function setGasFeePercentage(uint256 _gasFeePercentage) external onlyOwner {
-        gasFeePercentage = _gasFeePercentage;
+    function setGasFeePercentageBps(uint256 _gasFeePercentageBps) external onlyOwner {
+        require(_gasFeePercentageBps <= 1000, "Gas fee percentage must be less than or equal to 1000 bps (10%)");
+
+        _gasFeePercentageBps = _gasFeePercentageBps;
+        emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
+
+    event GasFeePercentageBpsUpdated(uint256 newGasFeePercentageBps);
 
     function getTokenValue() public view returns (uint256) {
         if (totalSupply() == 0) {
@@ -557,7 +564,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable {
         return 159089461098 * (10**18);
     }
 
-    function setInitialValues() internal {
+    function setInitialValues() internal onlyOwner{
         require(!calledOnce,"already called");
 
         _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696); //1
