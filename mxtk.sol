@@ -57,7 +57,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
-        gasFeePercentage = 70; // Default to 70 bps (0.7%)
+        gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
         auPriceFeed = AggregatorV3Interface(
         //0x7b219F57a8e9C7303204Af681e9fA69d17ef626f //testnet
             0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
@@ -124,8 +124,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
 
 
-    // Gas fee percentage
-    uint256 public gasFeePercentage;
+    // Gas fee percentage in basis points (bps)
+    uint256 public gasFeePercentageBps;
 
     mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
 
@@ -428,7 +428,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
         // Calculate gas fee based on amount - gasFee
         // This avoids double charging fee on the fee
-        uint256 gasFee = (amount * gasFeePercentage) / 10_000;
+        uint256 gasFee = (amount * gasFeePercentageBps) / 10_000;
 
         // Check balance is sufficient before any transfer
         require(balanceBefore >= amount, "Insufficient balance");
@@ -513,12 +513,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     }
 
     // Function to update the gas fee percentage
-    function setGasFeePercentage(uint256 _gasFeePercentage) external onlyOwner {
-        gasFeePercentage = _gasFeePercentage;
-        emit GasFeePercentageUpdated(_gasFeePercentage);
+    function setGasFeePercentageBps(uint256 _gasFeePercentageBps) external onlyOwner {
+        require(_gasFeePercentageBps <= 1000, "Gas fee percentage must be less than or equal to 1000 bps (10%)");
+
+        _gasFeePercentageBps = _gasFeePercentageBps;
+        emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
 
-    event GasFeePercentageUpdated(uint256 newGasFeePercentage);
+    event GasFeePercentageBpsUpdated(uint256 newGasFeePercentageBps);
 
     function getTokenValue() public view returns (uint256) {
         if (totalSupply() == 0) {
