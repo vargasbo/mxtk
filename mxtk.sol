@@ -9,27 +9,45 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
+/// @custom:security-contact security@mineral-token.com
 contract MXTK is Initializable, ERC20Upgradeable, ERC20BurnableUpgradeable, ERC20PausableUpgradeable,
 OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
+
+    // Gas fee percentage in basis points (bps)
+    uint256 public gasFeePercentageBps;
+
+    mapping(string=>uint) internal MineralPrices;
+    mapping(string=>address) internal MineralPricesOracle;
+    mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
+
+    struct Holdings {
+        address owner;
+        string assetIpfsCID;
+        string mineralSymbol;
+        uint256 ounces;
+    }
+
+    Holdings[] internal newHoldingArray;
+    uint256 internal newHoldingIndex;
+
+    // Add this array to keep track of mineral symbols
+    string[] public mineralSymbols;
+    uint256 public totalAssetValue; // Total value of all assets in the contract
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
-    
-    mapping(string=>uint) internal MineralPrices;
-    mapping(string=>address) internal MineralPricesOracle;
 
-    function initialize() initializer public {
+    function initialize(address initialOwner) initializer public {
         __ERC20_init("Mineral Token", "MXTK");
         __ERC20Burnable_init();
         __ERC20Pausable_init();
-        __Ownable_init(msg.sender);
+        __Ownable_init(initialOwner);
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
@@ -93,25 +111,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         setInitialValues();
 
     }
-
-    // Gas fee percentage in basis points (bps)
-    uint256 public gasFeePercentageBps;
-
-    mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
-
-    struct Holdings {
-        address owner;
-        string assetIpfsCID;
-        string mineralSymbol;
-        uint256 ounces;
-    }
-
-    Holdings[] internal newHoldingArray;
-    uint256 internal newHoldingIndex;
-
-    // Add this array to keep track of mineral symbols
-    string[] public mineralSymbols;
-    uint256 public totalAssetValue; // Total value of all assets in the contract
 
     function pause() public onlyOwner {
         _pause();
@@ -261,9 +260,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     // Function to calculate the total value of all assets in the contract
     function calculateTotalAssetValue() internal view returns (uint256) {
-        uint256 totalValue = 0;
+        uint256 totalValue;
 
-        for(uint256 i = 0 ; i < newHoldingArray.length;i++){
+        for(uint256 i; i < newHoldingArray.length;i++){
             totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
         }
 
@@ -274,7 +273,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
         bool symbolExists = false;
-        for (uint256 i = 0; i < mineralSymbols.length; i++) {
+        for (uint256 i; i < mineralSymbols.length; i++) {
             if (
                 keccak256(bytes(mineralSymbols[i])) ==
                 keccak256(bytes(mineralSymbol))
@@ -306,7 +305,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         uint256 price = getTokenValue();
 
         //When porting data the first time; we'll have a value of zero. We'll use
-        // the orignal value when minting tokens
+        // the original value when minting tokens
         if(price == 0)
             price = baseValue();
 
@@ -409,7 +408,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     // Function to remove the holding from the owner
     function removeHoldingFromOwner(address holdingOwner, string memory ipfsCid) internal {
-        for (uint256 i = 0; i < newHoldingArray.length; i++) {
+        for (uint256 i; i < newHoldingArray.length; i++) {
             if (newHoldingArray[i].owner == holdingOwner&&
                 keccak256(bytes(newHoldingArray[i].assetIpfsCID)) == keccak256(bytes(ipfsCid))
             ) {
@@ -428,10 +427,10 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         string memory ipfsCid
     ) public view returns (uint256) {
 
-        uint256 totalHoldingValue = 0;
+        uint256 totalHoldingValue;
 
         // Calculate the value of each mineral in the Holding
-        for (uint256 i = 0; i < newHoldingArray.length; i++) {
+        for (uint256 i; i < newHoldingArray.length; i++) {
             if (newHoldingArray[i].owner==holdingOwner &&
                 keccak256(bytes(newHoldingArray[i].assetIpfsCID)) == keccak256(bytes(ipfsCid))
             ) {
@@ -528,125 +527,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         // Add initial minerals using the addMineralToHolding function
         existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "Qmb4am5G3yZKfQd3nBtuhWHmXTgzr6y6cV8dFwp3f9WTGn", "GR", 192000000000);
         existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "QmRohsANeKkPktGDmfWdpKuBmcCizEJS2TnXV6m1tBdYAQ", "AU", 71651);
-    }
-
-}
-
-//Used to publish event changes from Price Oracle
-contract PriceEventEmitter {
-    constructor(){
-    }
-    event eventEmitted(string,int);
-
-    function emitEvent(string memory symbol,int price) public {
-        emit eventEmitted(symbol, price);
-    }
-}
-
-//Create different Price Oracles instances for all minerals supported
-contract PriceOracle is AggregatorV3Interface, Ownable {
-
-    string public name;
-    string public symbol;
-    address public admin;
-    MXTK public main;
-    int internal _price;
-    uint internal _version = 1;
-    PriceEventEmitter public emitter;
-    uint internal  _startedAt;
-    uint internal _updatedAt;
-    uint8 internal _decimals = 8;
-
-    constructor(
-        address initialOwner, // Address of the initial owner
-        string memory _name,
-        string memory _symbol,
-        address _mxtk,
-        address _priceEventEmitter,
-        int initialPrice
-    ) Ownable(initialOwner) {
-        name = _name;
-        symbol = _symbol;
-        admin = initialOwner; // Set initial admin to the contract deployer
-        main = MXTK(_mxtk);
-        main.updateMineralPriceOracle(_symbol, address(this), initialOwner);
-        _price = initialPrice;
-        emitter = PriceEventEmitter(_priceEventEmitter);
-        _startedAt = block.timestamp;
-        _updatedAt = block.timestamp;
-    }
-
-    modifier onlyAdmin{
-        require(msg.sender==admin,"you are not admin");
-        _;
-    }
-
-    function changeAdmin(address newAdmin) public onlyAdmin{
-        admin = newAdmin;
-    }
-
-    function decimals()
-    external
-    view
-    returns (
-        uint8
-    ){return _decimals;}
-
-    function description()
-    external
-    view
-    returns (
-        string memory
-    ){return name;}
-
-    function version()
-    external
-    view
-    returns (
-        uint256
-    ){return _version;}
-
-    function getRoundData(
-        uint80 _roundId
-    )
-    external
-    view
-    returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ){roundId = _roundId;
-        answer = _price;
-        startedAt = 0;
-        updatedAt = block.timestamp;
-        answeredInRound = _roundId;
-    }
-
-    function changePrice(int newPrice) public onlyOwner {
-        _price = newPrice;
-        main.updateAndComputeTokenPrice();
-        _updatedAt = block.timestamp;
-        emitter.emitEvent(symbol, newPrice);
-    }
-
-    function latestRoundData()
-    external
-    view
-    returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ){
-        roundId =0;
-        answer = _price;
-        startedAt =_startedAt;
-        updatedAt = _updatedAt;
-        answeredInRound = 0;
-
     }
 
 }
