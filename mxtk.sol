@@ -22,7 +22,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     mapping(string=>uint256) internal MineralPrices;
     mapping(string=>address) internal MineralPricesOracle;
-    mapping(address=>mapping(string=>mapping(string=>uint256))) public newHoldings;
+    mapping(address=>mapping(string=>mapping(string=>uint256))) internal newHoldings;
 
     struct Holdings {
         address owner;
@@ -134,8 +134,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         super._update(from, to, value);
     }
 
-    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress, address msgSender) public {
-        require(msgSender == owner(), "Only the contract owner can update the mineral price oracle");
+    function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress, address ownerAddress) public {
+        require(ownerAddress == owner(), "Only the contract owner can update the mineral price oracle");
         MineralPricesOracle[mineralSymbol]=priceOracleAddress;
     }
 
@@ -286,14 +286,15 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
                 keccak256(bytes(mineralSymbol))
             ) {
                 symbolExists = true;
+                emit MineralSymbolNotAdded(mineralSymbol);
                 break;
             }
         }
         if (!symbolExists) {
             mineralSymbols.push(mineralSymbol);
+            emit MineralSymbolAdded(mineralSymbol);
         }
 
-        emit MineralSymbolAdded(mineralSymbol);
     }
 
     // Function to add a mineral symbol to the array
@@ -468,6 +469,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     event ExistingDataToHolding(address holdingOwner, string assetIpfsCID, string mineralSymbol, uint256 mineralOunces);
     event MineralSymbolAdded(string mineralSymbol);
+    event MineralSymbolNotAdded(string mineralSymbol);
 
     event TokenPriceUpdated(uint256);
 
