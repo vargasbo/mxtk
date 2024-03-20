@@ -21,31 +21,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     constructor() {
         _disableInitializers();
     }
-
-    AggregatorV3Interface internal auPriceFeed; // Chainlink Gold Price Feed contract
-    AggregatorV3Interface internal bauxitePriceFeed;
-    AggregatorV3Interface internal chromiumPriceFeed;
-    AggregatorV3Interface internal coalPriceFeed;
-    AggregatorV3Interface internal cobaltPriceFeed;
-    AggregatorV3Interface internal copperPriceFeed;
-    AggregatorV3Interface internal diamondPriceFeed;
-    AggregatorV3Interface internal graphitePriceFeed;
-    AggregatorV3Interface internal iridiumPriceFeed;
-    AggregatorV3Interface internal ironPriceFeed;
-    AggregatorV3Interface internal lithiumPriceFeed;
-    AggregatorV3Interface internal magnesiumPriceFeed;
-    AggregatorV3Interface internal manganesePriceFeed;
-    AggregatorV3Interface internal nickelPriceFeed;
-    AggregatorV3Interface internal oilPriceFeed;
-    AggregatorV3Interface internal osmiumPriceFeed;
-    AggregatorV3Interface internal palladiumPriceFeed;
-    AggregatorV3Interface internal platinumPriceFeed;
-    AggregatorV3Interface internal rhodiumPriceFeed;
-    AggregatorV3Interface internal rutheniumPriceFeed;
-    AggregatorV3Interface internal silverPriceFeed;
-    AggregatorV3Interface internal tanzanitePriceFeed;
-    AggregatorV3Interface internal tungstenPriceFeed;
-
+    
     mapping(string=>uint) internal MineralPrices;
     mapping(string=>address) internal MineralPricesOracle;
 
@@ -58,22 +34,18 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         __UUPSUpgradeable_init();
 
         gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
-        auPriceFeed = AggregatorV3Interface(
-        //0x7b219F57a8e9C7303204Af681e9fA69d17ef626f //testnet
-            0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6  //mainNet
-        ); //XAU/USD address
-
+        
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
         MineralPrices["CU"] = 10000; //default value for copper over from existing holdings
 
         mineralSymbols.push("AU");
-        MineralPrices["AU"] = 10000;  //this is the only one using from chainLink
+        MineralPrices["AU"] = 215544000000; //Gold spot price at time of published
 
         mineralSymbols.push("GR");
         MineralPricesOracle["GR"] = address(0);
-        MineralPrices["GR"] = 10000;  //default value since porting over existing Holdings
+        MineralPrices["GR"] = 10000000;  //default value since porting over existing Holdings
 
         mineralSymbols.push("BA");
         MineralPricesOracle["BA"] = address(0);
@@ -122,8 +94,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     }
 
-
-
     // Gas fee percentage in basis points (bps)
     uint256 public gasFeePercentageBps;
 
@@ -164,18 +134,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     {
         super._update(from, to, value);
     }
-
-
-    event MineralPriceUpdated(string,uint);
-
-    function updateGoldPriceOracle(address goldOracleAddress)
-    external
-    onlyOwner
-    {
-        require(goldOracleAddress != address(0), "Invalid address");
-        auPriceFeed = AggregatorV3Interface(goldOracleAddress);
-    }
-
 
     function updateMineralPriceOracle(string memory mineralSymbol,address priceOracleAddress, address msgSender) public {
         require(msgSender == owner(), "Only the contract owner can update the mineral price oracle");
@@ -290,8 +248,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         );
     }
 
-    event TokenPriceUpdated(uint);
-
     // Function to update prices of underlying assets and compute token price
     function updateAndComputeTokenPrice() public {
         // Update the prices of underlying assets
@@ -385,34 +341,12 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     }
 
     function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
-        //Gold is using the existing Price Oracle; call that vs internal
-        if (keccak256(bytes(mineralSymbol)) == keccak256(bytes("AU"))) {
-            return uint256(getGoldPrice());
-        } else{
-            int256 price = 0;
-            AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
-            (, price, , , ) = tx1.latestRoundData();
-
-            return uint256(price);
-        }
-    }
-
-    function getGoldPrice() public view returns (uint256) {
-        (, int256 price, , , ) = auPriceFeed.latestRoundData();
-        require(price > 0, "Price feed error");
+        int256 price = 0;
+        AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
+        (, price, , , ) = tx1.latestRoundData();
 
         return uint256(price);
-    }
-
-    // Function to calculate the value of Gold based on ounces from an oracle
-    function calculateGoldValue(uint256 metalOunces)
-    public
-    view
-    returns (uint256)
-    {
-        uint256 price = getGoldPrice();
-        //Gold is returned in
-        return metalOunces * price;
+        
     }
 
     function transfer(address to, uint256 amount)
@@ -520,6 +454,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
 
+    event TokenPriceUpdated(uint);
+
     event GasFeePercentageBpsUpdated(uint256 newGasFeePercentageBps);
 
     function getTokenValue() public view returns (uint256) {
@@ -528,6 +464,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         }
         return (totalAssetValue * 1e18) / totalSupply();
     }
+
+    event MineralPriceUpdated(string,uint);
 
     // Event to log Holding release
     event HoldingBuyback(
