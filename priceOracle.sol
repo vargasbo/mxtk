@@ -81,7 +81,7 @@ contract PriceOracle is AggregatorV3Interface, Ownable {
         _price = newPrice;
         main.updateAndComputeTokenPrice();
         _updatedAt = block.timestamp;
-        emitter.emitEvent(symbol, newPrice);
+        emitter.emitEvent(symbol, newPrice, owner());
     }
 
     function latestRoundData()
