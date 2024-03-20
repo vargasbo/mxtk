@@ -20,9 +20,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     // Gas fee percentage in basis points (bps)
     uint256 public gasFeePercentageBps;
 
-    mapping(string=>uint) internal MineralPrices;
+    mapping(string=>uint256) internal MineralPrices;
     mapping(string=>address) internal MineralPricesOracle;
-    mapping(address=>mapping(string=>mapping(string=>uint))) public newHoldings;
+    mapping(address=>mapping(string=>mapping(string=>uint256))) public newHoldings;
 
     struct Holdings {
         address owner;
@@ -459,7 +459,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     event ExistingDataToHolding(address holdingOwner, string assetIpfsCID, string mineralSymbol, uint256 mineralOunces);
     event MineralSymbolAdded(string mineralSymbol);
 
-    event TokenPriceUpdated(uint);
+    event TokenPriceUpdated(uint256);
 
     event GasFeePercentageBpsUpdated(uint256 newGasFeePercentageBps);
 
