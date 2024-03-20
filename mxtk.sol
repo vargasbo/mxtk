@@ -106,8 +106,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         mineralSymbols.push("TG");
         MineralPricesOracle["TG"] = address(0);
 
-        totalAssetValue = 0;
-
         setInitialValues();
 
     }
