@@ -52,7 +52,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         __UUPSUpgradeable_init();
 
         gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
-        
+
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
         MineralPricesOracle["CU"] = address(0);
@@ -174,6 +174,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         // Update totalAssetValue
         totalAssetValue += mineralValueInWei;
         updateAndComputeTokenPrice();
+
+        emit ExistingDataToHolding(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
     }
 
     function addMineralToHolding(
@@ -285,8 +287,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         if (!symbolExists) {
             mineralSymbols.push(mineralSymbol);
         }
-    }
 
+        emit MineralSymbolAdded(mineralSymbol);
+    }
 
     // Function to add a mineral symbol to the array
     function addMineralSymbol(string memory mineralSymbol) external onlyOwner{
@@ -345,7 +348,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         (, price, , , ) = tx1.latestRoundData();
 
         return uint256(price);
-        
+
     }
 
     function transfer(address to, uint256 amount)
@@ -453,6 +456,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
 
+    event ExistingDataToHolding(address holdingOwner, string assetIpfsCID, string mineralSymbol, uint256 mineralOunces);
+    event MineralSymbolAdded(string mineralSymbol);
+
     event TokenPriceUpdated(uint);
 
     event GasFeePercentageBpsUpdated(uint256 newGasFeePercentageBps);
@@ -464,22 +470,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         return (totalAssetValue * 1e18) / totalSupply();
     }
 
-    event MineralPriceUpdated(string,uint);
-
     // Event to log Holding release
     event HoldingBuyback(
         address indexed sender,
         uint256 tokensToBurn,
         uint256 holdingValueInWei
-    );
-
-    // Event to log IPFS asset reference, mineral value, and mineral details
-    event IPFSAssetReferenced(
-        address indexed recipient,
-        address indexed holdingOwner,
-        string ipfsHash,
-        uint256 mineralValue,
-        uint256 tokenId
     );
 
     event MineralAdded(
@@ -491,9 +486,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         uint256 adminFee,
         uint256 amountTransferredToHoldingOwner
     );
-
-    // Declare the event at the contract level
-    event DebugLog(string message, uint256 value);
 
     bool internal calledOnce;
 
