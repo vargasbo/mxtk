@@ -200,7 +200,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
         Holdings memory tx1 = Holdings(holdingOwner,assetIpfsCID,mineralSymbol,mineralOunces);
         newHoldingArray.push(tx1);
-        newHoldingIndex++;
+        unchecked {
+            ++newHoldingIndex;
+        }
 
 
         // Calculation logic
@@ -264,8 +266,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     function calculateTotalAssetValue() internal view returns (uint256) {
         uint256 totalValue;
 
-        for(uint256 i; i < newHoldingArray.length;i++){
-            totalValue+=  calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
+        for (uint256 i; i < newHoldingArray.length;) {
+            totalValue += calculateMineralValueInWei(newHoldingArray[i].mineralSymbol, newHoldingArray[i].ounces);
+            unchecked {
+                ++i;
+            }
         }
 
         return totalValue;
@@ -274,7 +279,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     function _addMineralSymbol(string memory mineralSymbol) internal {
 
         // to keep a list of these synthetic elements not on table. You might come up with a better solution.
-        bool symbolExists = false;
+        bool symbolExists;
         for (uint256 i; i < mineralSymbols.length; i++) {
             if (
                 keccak256(bytes(mineralSymbols[i])) ==
@@ -343,7 +348,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     }
 
     function getMineralPrice(string memory mineralSymbol) public view returns (uint256) {
-        int256 price = 0;
+        int256 price;
         AggregatorV3Interface tx1 = AggregatorV3Interface(MineralPricesOracle[mineralSymbol]);
         (, price, , , ) = tx1.latestRoundData();
 
@@ -411,8 +416,8 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     // Function to remove the holding from the owner
     function removeHoldingFromOwner(address holdingOwner, string memory ipfsCid) internal {
-        for (uint256 i; i < newHoldingArray.length; i++) {
-            if (newHoldingArray[i].owner == holdingOwner&&
+        for (uint256 i; i < newHoldingArray.length;) {
+            if (newHoldingArray[i].owner == holdingOwner &&
                 keccak256(bytes(newHoldingArray[i].assetIpfsCID)) == keccak256(bytes(ipfsCid))
             ) {
                 // Remove the holding by swapping with the last element and then reducing the array length
@@ -420,6 +425,9 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
                 delete newHoldingArray[newHoldingArray.length - 1];
                 newHoldingArray.pop();
                 break;
+            }
+            unchecked {
+                ++i;
             }
         }
     }
@@ -433,15 +441,17 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         uint256 totalHoldingValue;
 
         // Calculate the value of each mineral in the Holding
-        for (uint256 i; i < newHoldingArray.length; i++) {
-            if (newHoldingArray[i].owner==holdingOwner &&
+        for (uint256 i; i < newHoldingArray.length;) {
+            if (newHoldingArray[i].owner == holdingOwner &&
                 keccak256(bytes(newHoldingArray[i].assetIpfsCID)) == keccak256(bytes(ipfsCid))
             ) {
-
                 totalHoldingValue += calculateMineralValueInWei(
                     newHoldingArray[i].mineralSymbol,
                     newHoldingArray[i].ounces
                 );
+            }
+            unchecked {
+                ++i;
             }
         }
 
