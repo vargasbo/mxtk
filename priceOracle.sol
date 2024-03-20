@@ -3,22 +3,21 @@
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "./mxtk.sol";
 import "./priceEventEmitter.sol";
 
 //Create different Price Oracles instances for all minerals supported
+/// @custom:security-contact security@mineral-token.com
 contract PriceOracle is AggregatorV3Interface, Ownable {
 
     string public name;
     string public symbol;
-    address public admin;
     MXTK public main;
-    int internal _price;
-    uint internal _version = 1;
+    int256 internal _price;
+    uint256 internal _version = 1;
     PriceEventEmitter public emitter;
-    uint internal  _startedAt;
-    uint internal _updatedAt;
+    uint256 internal  _startedAt;
+    uint256 internal _updatedAt;
     uint8 internal _decimals = 8;
 
     constructor(
@@ -27,26 +26,16 @@ contract PriceOracle is AggregatorV3Interface, Ownable {
         string memory _symbol,
         address _mxtk,
         address _priceEventEmitter,
-        int initialPrice
+        int256 initialPrice
     ) Ownable(initialOwner) {
         name = _name;
         symbol = _symbol;
-        admin = initialOwner; // Set initial admin to the contract deployer
         main = MXTK(_mxtk);
         main.updateMineralPriceOracle(_symbol, address(this), initialOwner);
         _price = initialPrice;
         emitter = PriceEventEmitter(_priceEventEmitter);
         _startedAt = block.timestamp;
         _updatedAt = block.timestamp;
-    }
-
-    modifier onlyAdmin{
-        require(msg.sender==admin,"you are not admin");
-        _;
-    }
-
-    function changeAdmin(address newAdmin) public onlyAdmin{
-        admin = newAdmin;
     }
 
     function decimals()
