@@ -7,6 +7,12 @@
 !.vscode/extensions.json
 ### Eclipse template
 
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
 .metadata
 tmp/
 *.tmp
