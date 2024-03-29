@@ -23,6 +23,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     mapping(string=>uint256) internal MineralPrices;
     mapping(string=>address) internal MineralPricesOracle;
     mapping(address=>mapping(string=>mapping(string=>uint256))) internal newHoldings;
+    mapping(address => bool) public excludedFromFees;
 
     struct Holdings {
         address owner;
@@ -51,7 +52,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
-        gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
+        gasFeePercentageBps = 10; // Default to 10 bps (0.1%)
 
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
@@ -106,8 +107,6 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         mineralSymbols.push("TG");
         MineralPricesOracle["TG"] = address(0);
 
-        setInitialValues();
-
     }
 
     function pause() public onlyOwner {
@@ -116,6 +115,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     function unpause() public onlyOwner {
         _unpause();
+    }
+
+    function excludeFromFees(address account) external onlyOwner {
+        excludedFromFees[account] = true;
+    }
+
+    function includeInFees(address account) external onlyOwner {
+        excludedFromFees[account] = false;
     }
 
     function _authorizeUpgrade(address newImplementation)
@@ -355,20 +362,19 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     }
 
-    function transfer(address to, uint256 amount)
-    public
-    override
-    returns (bool)
-    {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         require(to != address(0), "Invalid address");
         require(amount > 0, "Amount must > zero");
 
         // Get balance before transfer
         uint256 balanceBefore = balanceOf(msg.sender);
 
-        // Calculate gas fee based on amount - gasFee
-        // This avoids double charging fee on the fee
-        uint256 gasFee = (amount * gasFeePercentageBps) / 10_000;
+        uint256 gasFee = 0;
+        if (!excludedFromFees[msg.sender]) {
+            // Calculate gas fee based on amount - gasFee
+            // This avoids double charging fee on the fee
+            gasFee = (amount * gasFeePercentageBps) / 10_000;
+        }
 
         // Check balance is sufficient before any transfer
         require(balanceBefore >= amount, "Insufficient balance");
@@ -379,8 +385,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         // Transfer tokens minus gas fee
         require(super.transfer(to, amount - gasFee), "Transfer failed");
 
-        // Transfer gas fee to owner
-        require(super.transfer(owner(), gasFee), "Gas fee transfer failed");
+        if (gasFee > 0) {
+            // Transfer gas fee to owner
+            require(super.transfer(owner(), gasFee), "Gas fee transfer failed");
+        }
+
         return true;
     }
 
@@ -461,7 +470,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     function setGasFeePercentageBps(uint256 _gasFeePercentageBps) external onlyOwner {
         require(_gasFeePercentageBps <= 1000, "Gas fee percentage must be less than or equal to 1000 bps (10%)");
 
-        _gasFeePercentageBps = _gasFeePercentageBps;
+        gasFeePercentageBps = _gasFeePercentageBps;
         emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
 
@@ -497,38 +506,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         uint256 amountTransferredToHoldingOwner
     );
 
-    bool internal calledOnce;
 
     function baseValue() public pure returns (uint256) {
         return 159089461098 * (10**18);
     }
 
-    function setInitialValues() internal onlyOwner{
-        require(!calledOnce,"already called");
-
-        _mint(0x91852aEC928690F4F55e556c4b000302b04c3e30,4601442839954048884548696); //1
-        _mint(0xb36C15f1ED5cedb9E913218219016d8Cf5Ac864F,4255602869571497331219493); //2
-        _mint(0x121B039CBc60aA1bf563306eB24013D0e1bA0989,2672762772000000000000000); //3
-        _mint(0xB3f46cC55a50225f197AE5a4d1545350f48B2F0b,624477244200000000000000);  //4
-
-        _mint(0xf49a4C1A5250aF8Da4beB67b9C28e82f7D1E8D92,198600000000000000000); //5
-        _mint(0xc2DE3C2143a0c979Ee00019BeDEfF89AE8124262,198600000000000000000); //6
-        _mint(0x4bD9Ea8D612aD197de3d3180db0A60bC7Cbc3189,198600000000000000000); //7
-        _mint(0xB9aD5fd45F3A36Be70E2fD2F661060ddc1D0fc09,198600000000000000000); //8
-        _mint(0xd79497C683BD0eA45DaFc8b732cBf7344F5Df231,3152775000000000000); //9
-        _mint(0xE1a0508BB886C110f2238C0232795c30d99C71D7,93448174827476894);  //10
-        _mint(0xDf0a2F8E8c5a78D1E501382060C803750C5E5821,30783000000000000);  //11
-        _mint(0x5c5Eac6cE39623A023F886eC015C635b04a95f71,13902000000000000);  //12
-        _mint(0xd0684c3311483027bAaFCDd3dB91876BEd5b86c9,4956360431002742);  //13
-
-        calledOnce = true;
-    }
-
-    //To be called after the proxy has been deployed
-    function portExistingMinerals() external onlyOwner{
-        // Add initial minerals using the addMineralToHolding function
-        existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "Qmb4am5G3yZKfQd3nBtuhWHmXTgzr6y6cV8dFwp3f9WTGn", "GR", 192000000000);
-        existingDataToHolding(0x91852aEC928690F4F55e556c4b000302b04c3e30, "QmRohsANeKkPktGDmfWdpKuBmcCizEJS2TnXV6m1tBdYAQ", "AU", 71651);
-    }
+    bool internal calledOnce;
 
 }
