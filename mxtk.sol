@@ -23,6 +23,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     mapping(string=>uint256) internal MineralPrices;
     mapping(string=>address) internal MineralPricesOracle;
     mapping(address=>mapping(string=>mapping(string=>uint256))) internal newHoldings;
+    mapping(address => bool) public excludedFromFees;
 
     struct Holdings {
         address owner;
@@ -51,7 +52,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         __ERC20Permit_init("Mineral Token");
         __UUPSUpgradeable_init();
 
-        gasFeePercentageBps = 70; // Default to 70 bps (0.7%)
+        gasFeePercentageBps = 10; // Default to 10 bps (0.1%)
 
         // Initialize mineralSymbols with default symbols
         mineralSymbols.push("CU");
@@ -116,6 +117,14 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     function unpause() public onlyOwner {
         _unpause();
+    }
+
+    function excludeFromFees(address account) external onlyOwner {
+        excludedFromFees[account] = true;
+    }
+
+    function includeInFees(address account) external onlyOwner {
+        excludedFromFees[account] = false;
     }
 
     function _authorizeUpgrade(address newImplementation)
@@ -355,20 +364,19 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
 
     }
 
-    function transfer(address to, uint256 amount)
-    public
-    override
-    returns (bool)
-    {
+    function transfer(address to, uint256 amount) public override returns (bool) {
         require(to != address(0), "Invalid address");
         require(amount > 0, "Amount must > zero");
 
         // Get balance before transfer
         uint256 balanceBefore = balanceOf(msg.sender);
 
-        // Calculate gas fee based on amount - gasFee
-        // This avoids double charging fee on the fee
-        uint256 gasFee = (amount * gasFeePercentageBps) / 10_000;
+        uint256 gasFee = 0;
+        if (!excludedFromFees[msg.sender]) {
+            // Calculate gas fee based on amount - gasFee
+            // This avoids double charging fee on the fee
+            gasFee = (amount * gasFeePercentageBps) / 10_000;
+        }
 
         // Check balance is sufficient before any transfer
         require(balanceBefore >= amount, "Insufficient balance");
@@ -379,8 +387,11 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         // Transfer tokens minus gas fee
         require(super.transfer(to, amount - gasFee), "Transfer failed");
 
-        // Transfer gas fee to owner
-        require(super.transfer(owner(), gasFee), "Gas fee transfer failed");
+        if (gasFee > 0) {
+            // Transfer gas fee to owner
+            require(super.transfer(owner(), gasFee), "Gas fee transfer failed");
+        }
+
         return true;
     }
 
@@ -461,7 +472,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
     function setGasFeePercentageBps(uint256 _gasFeePercentageBps) external onlyOwner {
         require(_gasFeePercentageBps <= 1000, "Gas fee percentage must be less than or equal to 1000 bps (10%)");
 
-        _gasFeePercentageBps = _gasFeePercentageBps;
+        gasFeePercentageBps = _gasFeePercentageBps;
         emit GasFeePercentageBpsUpdated(_gasFeePercentageBps);
     }
 
@@ -496,6 +507,7 @@ OwnableUpgradeable, ERC20PermitUpgradeable, UUPSUpgradeable, ReentrancyGuard {
         uint256 adminFee,
         uint256 amountTransferredToHoldingOwner
     );
+
 
     bool internal calledOnce;
 
